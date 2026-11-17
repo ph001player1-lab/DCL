@@ -3,3 +3,4 @@ node_modules/
 .dev.vars
 *.log
 src/static-files.js
+video/out/

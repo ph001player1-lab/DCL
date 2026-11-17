@@ -133,6 +133,25 @@ npx wrangler kv key put potok-lyubvi.pdf --path "Поток любви.pdf" --bi
 Если меняется число страниц или размер файла, поправьте подписи в разделе «Книги» в
 `public/index.html`.
 
+## Ролик
+
+Исходники в `video/`: анимация — обычная веб-страница `video/index.html`, где каждый кадр
+рассчитывается функцией `render(t)` по времени озвучки. Тайминги слов (`assets/words.json`)
+получены распознаванием речи (faster-whisper) из `assets/voice.mp3`. Музыка синтезируется
+скриптом `video/music.py` (без чужих сэмплов), микс — `assets/mix.mp3`. Шрифты Inter и
+JetBrains Mono — лицензия OFL.
+
+```bash
+node video/render.mjs --stills 15.5,48,76.8 --out video/out
+```
+```bash
+node video/render.mjs --video video/out/dcl832.mp4 --audio video/assets/mix.mp3
+```
+
+Предпросмотр кадра в браузере: `video/index.html?t=48` (через локальный http-сервер).
+Готовое видео лежит в KV (ключ `media/dcl832.mp4`) и отдаётся по `/media/dcl832.mp4`
+с поддержкой Range-запросов (нужна Safari для перемотки).
+
 ## Анализ данных
 
 - **https://dcl832.click/admin/** — пароль из шага 6. Сводка: устройства, доля отвеченных

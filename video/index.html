@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>DCL-832 — ролик</title>
+<style>
+  @font-face { font-family: 'InterV'; src: url('fonts/Inter[opsz,wght].ttf') format('truetype'); font-weight: 100 900; }
+  @font-face { font-family: 'MonoV'; src: url('fonts/JetBrainsMono[wght].ttf') format('truetype'); font-weight: 100 900; }
+  :root {
+    --bg: #f6f4ef; --surface: #fff; --surface-2: #efece5; --ink: #1c2220; --muted: #69716d; --line: #e3dfd6;
+    --one: #2e7d5b; --one-soft: #dcefe5; --zero: #c8553a; --zero-soft: #f7e1da; --unk: #9aa0a6; --accent: #24684b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { font-family: 'InterV', 'Inter', system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden;
+    background: radial-gradient(1200px 900px at 50% 30%, #fbfaf6 0%, var(--bg) 60%), var(--bg); }
+  .abs { position: absolute; will-change: transform, opacity; }
+  .center { left: 0; right: 0; text-align: center; }
+  .mono { font-family: 'MonoV', 'JetBrains Mono', monospace; }
+  .h1 { font-size: 84px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+  .h2 { font-size: 64px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
+  .h3 { font-size: 44px; font-weight: 700; letter-spacing: -0.015em; }
+  .muted { color: var(--muted); }
+  .green { color: var(--one); } .red { color: var(--zero); }
+
+  /* бренд */
+  #brand { left: 64px; top: 72px; display: flex; align-items: center; gap: 16px; font-weight: 800; font-size: 34px; letter-spacing: .06em; }
+  #brand svg { width: 44px; height: 44px; }
+  .palm rect { fill: var(--one); }
+
+  /* карточки */
+  .card { background: var(--surface); border-radius: 44px; box-shadow: 0 2px 6px rgba(20,30,25,.05), 0 24px 60px rgba(20,40,30,.10); padding: 40px 48px; }
+  .card .label { font-size: 32px; color: var(--muted); font-weight: 600; }
+  .card .big { font-size: 112px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; }
+  .chip { font-size: 30px; font-weight: 600; padding: 12px 24px; border-radius: 99px; background: var(--surface-2); }
+  .tag { position: absolute; right: 40px; top: 36px; font-size: 30px; font-weight: 700; padding: 10px 22px; border-radius: 99px; background: var(--one-soft); color: var(--one); }
+  .stars { color: #e0a526; }
+
+  /* сцена 2 */
+  .mini { background: var(--surface); border-radius: 32px; padding: 26px 34px; box-shadow: 0 14px 36px rgba(20,40,30,.08); font-size: 54px; font-weight: 800; letter-spacing: -0.02em; }
+  .mini small { display: block; font-size: 26px; color: var(--muted); font-weight: 600; letter-spacing: 0; margin-bottom: 4px; }
+  .q-card { border: 6px dashed var(--line); border-radius: 44px; background: rgba(255,255,255,.55); text-align: center; padding: 40px; }
+  .q-mark { font-size: 200px; font-weight: 800; color: var(--one); line-height: 1; }
+
+  /* сцена 3: D C L */
+  .tile { width: 280px; height: 280px; border-radius: 52px; background: var(--surface); box-shadow: 0 18px 44px rgba(20,40,30,.10);
+    display: grid; place-items: center; font-family: 'MonoV', monospace; font-size: 170px; font-weight: 800; color: var(--ink); }
+  .tile.on { background: var(--accent); color: #fff; }
+  .under { width: 280px; text-align: center; font-size: 34px; font-weight: 700; }
+  .panel { background: var(--surface); border-radius: 44px; padding: 44px 52px; box-shadow: 0 18px 50px rgba(20,40,30,.09); }
+  .panel .k { font-family: 'MonoV', monospace; font-size: 36px; color: var(--muted); font-weight: 700; letter-spacing: .02em; }
+  .panel .v { font-size: 76px; font-weight: 800; letter-spacing: -0.03em; margin: 10px 0 6px; }
+  .flow { display: flex; align-items: center; gap: 26px; margin-top: 26px; font-size: 44px; font-weight: 800; }
+  .pill { padding: 16px 28px; border-radius: 26px; background: var(--surface-2); }
+
+  /* сцена 4: телефон */
+  .phone { width: 600px; height: 1040px; border-radius: 86px; background: #11161a; padding: 22px; box-shadow: 0 40px 90px rgba(10,20,15,.30); }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 66px; background: var(--bg); overflow: hidden; }
+  .notch { position: absolute; left: 50%; top: 18px; width: 150px; height: 36px; margin-left: -75px; border-radius: 20px; background: #11161a; z-index: 5; }
+  .scr { position: absolute; inset: 0; padding: 92px 34px 34px; }
+  .notif { position: absolute; left: 22px; right: 22px; top: 70px; background: rgba(255,255,255,.96); border-radius: 30px; padding: 22px 26px; box-shadow: 0 16px 40px rgba(0,0,0,.18); display: flex; gap: 18px; align-items: center; z-index: 4; }
+  .notif .ic { width: 64px; height: 64px; border-radius: 16px; background: #24684b; display: grid; place-items: center; flex: none; }
+  .notif b { display: block; font-size: 28px; } .notif span { font-size: 24px; color: var(--muted); }
+  .p-title { font-size: 40px; font-weight: 800; letter-spacing: -.02em; margin: 14px 0 18px; }
+  .p-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+  .p-chip { font-size: 24px; padding: 10px 18px; border-radius: 99px; border: 2px solid var(--line); background: #fff; }
+  .p-chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .p-qs { background: #fff; border-radius: 30px; padding: 6px 24px; }
+  .p-row { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; border-top: 2px solid var(--line); font-size: 32px; font-weight: 700; }
+  .p-row:first-child { border-top: 0; }
+  .yn { display: flex; gap: 10px; }
+  .yn i { font-style: normal; width: 92px; height: 66px; border-radius: 18px; border: 2px solid var(--line); background: var(--bg); display: grid; place-items: center; font-size: 26px; font-weight: 800; transition: none; }
+  .yn i.y { background: var(--one); border-color: var(--one); color: #fff; }
+  .yn i.n { background: var(--zero); border-color: var(--zero); color: #fff; }
+  .p-code { text-align: center; font-family: 'MonoV', monospace; font-size: 92px; font-weight: 800; letter-spacing: .12em; margin-top: 26px; }
+  .p-code span { color: var(--line); } .p-code .c1 { color: var(--one); } .p-code .c0 { color: var(--zero); }
+  .p-stat { background: #fff; border-radius: 30px; padding: 30px; margin-top: 18px; }
+  .p-stat .l { font-size: 26px; color: var(--muted); font-weight: 600; }
+  .p-stat .n { font-size: 110px; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
+  .bar { display: flex; height: 26px; border-radius: 99px; overflow: hidden; background: var(--surface-2); margin-top: 18px; }
+  .bar i { display: block; height: 100%; }
+  .b1 { background: var(--one); } .b0 { background: var(--zero); }
+  .legend { display: flex; gap: 22px; margin-top: 16px; font-size: 24px; color: var(--muted); }
+  .dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+
+  /* сцена 5–6 */
+  .row-x { display: flex; align-items: center; gap: 26px; font-size: 64px; font-weight: 800; letter-spacing: -.02em; }
+  .strike { position: relative; }
+  .strike::after { content: ''; position: absolute; left: -6px; right: -6px; top: 54%; height: 8px; border-radius: 4px; background: var(--zero); transform-origin: left; transform: scaleX(var(--s, 0)); }
+  .day { display: grid; grid-template-columns: repeat(6, 132px); gap: 18px; }
+  .blk { width: 132px; height: 132px; border-radius: 30px; background: var(--zero); }
+  .stamp { font-size: 150px; font-weight: 900; color: var(--zero); letter-spacing: .02em; border: 12px solid var(--zero); border-radius: 36px; padding: 0 44px; background: rgba(246,244,239,.85); }
+  .check { width: 76px; height: 76px; border-radius: 50%; background: var(--one); color: #fff; display: grid; place-items: center; font-size: 46px; font-weight: 900; flex: none; }
+  .gauge { width: 880px; height: 64px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+  .gauge i { display: block; height: 100%; background: linear-gradient(90deg, #2e7d5b, #3fa476); border-radius: 99px; }
+  .url { font-size: 64px; font-weight: 800; letter-spacing: -.01em; padding: 22px 46px; border-radius: 30px; background: var(--accent); color: #fff; }
+
+  /* субтитры */
+  #cap { position: absolute; left: 70px; right: 70px; top: 1330px; text-align: center; font-size: 60px; font-weight: 800; line-height: 1.22; letter-spacing: -0.01em; }
+  #cap span { color: rgba(28,34,32,.32); }
+  #cap span.on { color: var(--ink); }
+  #cap span.cur { color: var(--one); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="brand" class="abs"><svg class="palm" viewBox="0 0 100 100"><rect x="8" y="42" width="12" height="46" rx="6"/><rect x="25" y="22" width="12" height="66" rx="6"/><rect x="42" y="12" width="12" height="76" rx="6"/><rect x="59" y="20" width="12" height="68" rx="6"/><rect x="76" y="36" width="12" height="52" rx="6"/></svg>DCL-832</div>
+
+  <!-- 1. Две цифры -->
+  <div id="s1-q" class="abs center h1" style="top:230px;padding:0 70px">Как сегодня оценивают человека?</div>
+  <div id="s1-two" class="abs center h3 muted" style="top:250px">По сути — двумя цифрами</div>
+  <div id="s1-money" class="abs card" style="left:90px;width:900px;top:380px;height:330px">
+    <div class="label">Деньги · на счёте</div>
+    <div class="big"><span id="money-num">0</span> ₽</div>
+    <div id="tag-success" class="tag">успех</div>
+  </div>
+  <div id="s1-rating" class="abs card" style="left:90px;width:900px;top:760px;height:430px">
+    <div class="label">Социальный рейтинг</div>
+    <div class="big"><span class="stars">★</span> 4,87</div>
+    <div class="chips"><span id="chip-credit" class="chip">Кредитная история</span><span id="chip-taxi" class="chip">Такси</span><span id="chip-rep" class="chip">Репутация</span></div>
+    <div id="tag-reliab" class="tag">надёжность</div>
+  </div>
+
+  <!-- 2. Проблема -->
+  <div id="s2-minis" class="abs" style="left:90px;right:90px;top:200px;display:flex;gap:30px">
+    <div class="mini" style="flex:1"><small>Деньги</small>1 250 000 ₽</div>
+    <div class="mini" style="flex:1"><small>Рейтинг</small><span class="stars">★</span> 4,87</div>
+  </div>
+  <div id="s2-title" class="abs center h2" style="top:470px">Но есть проблема</div>
+  <div id="s2-wants" class="abs" style="left:90px;right:90px;top:600px;display:flex;flex-wrap:wrap;gap:18px;justify-content:center">
+    <span id="w1" class="chip" style="font-size:40px;padding:16px 32px;background:#fff">быть счастливыми</span>
+    <span id="w2" class="chip" style="font-size:40px;padding:16px 32px;background:#fff">меньше стресса</span>
+    <span id="w3" class="chip" style="font-size:40px;padding:16px 32px;background:#fff">наслаждаться жизнью</span>
+  </div>
+  <div id="s2-third" class="abs q-card" style="left:90px;width:900px;top:800px;height:420px">
+    <div class="q-mark" id="qmark">?</div>
+    <div class="h3" style="margin-top:14px">Сколько в твоём дне того,<br>что ты <span class="green">сам хочешь</span>?</div>
+  </div>
+
+  <!-- 3. Модель DCL -->
+  <div id="s3-title" class="abs center h2" style="top:200px">Третья цифра</div>
+  <div id="s3-tiles" class="abs" style="left:70px;right:70px;top:330px;display:flex;justify-content:space-between">
+    <div><div id="t-D" class="tile">D</div><div id="u-D" class="under muted" style="margin-top:20px">?</div></div>
+    <div><div id="t-C" class="tile">C</div><div id="u-C" class="under" style="margin-top:20px">₽ деньги</div></div>
+    <div><div id="t-L" class="tile">L</div><div id="u-L" class="under" style="margin-top:20px"><span class="stars">★</span> рейтинг</div></div>
+  </div>
+  <div id="p-C" class="abs panel" style="left:90px;width:900px;top:760px;height:430px">
+    <div class="k">C · CONSENT</div>
+    <div class="v">Согласие = «надо»</div>
+    <div class="flow"><span class="pill">⏱ 176 часов</span><span class="muted">→</span><span class="pill">80 000 ₽</span></div>
+    <div class="h3 muted" style="margin-top:22px;font-size:34px">Время в обмен на цифры на счёте</div>
+  </div>
+  <div id="p-L" class="abs panel" style="left:90px;width:900px;top:760px;height:430px">
+    <div class="k">L · LEGALITY</div>
+    <div class="v">Законность = «можно»</div>
+    <div class="flow"><span class="pill">законы</span><span class="pill">правила</span><span class="pill">нормы</span></div>
+    <div class="h3 muted" style="margin-top:22px;font-size:34px">Их считает социальный рейтинг</div>
+  </div>
+  <div id="p-D" class="abs panel" style="left:90px;width:900px;top:760px;height:430px">
+    <div class="k">D · DESIRE</div>
+    <div class="v green">Желание = «хочу»</div>
+    <div class="h3" style="margin-top:28px;font-size:46px">Его почти никто <span class="red">не учитывает</span></div>
+  </div>
+
+  <!-- 4. Приложение -->
+  <div id="s4-phone" class="abs phone" style="left:240px;top:190px">
+    <div class="screen">
+      <div class="notch"></div>
+      <div id="scr-logo" class="scr" style="display:grid;place-items:center;padding:0">
+        <div style="text-align:center"><svg class="palm" viewBox="0 0 100 100" style="width:170px;height:170px"><rect x="8" y="42" width="12" height="46" rx="6"/><rect x="25" y="22" width="12" height="66" rx="6"/><rect x="42" y="12" width="12" height="76" rx="6"/><rect x="59" y="20" width="12" height="68" rx="6"/><rect x="76" y="36" width="12" height="52" rx="6"/></svg>
+          <div style="font-size:56px;font-weight:800;letter-spacing:.06em;margin-top:20px">DCL-832</div>
+          <div class="muted" style="font-size:28px;margin-top:10px">хочу · согласен · можно</div></div>
+      </div>
+      <div id="notif" class="notif"><div class="ic"><svg class="palm" viewBox="0 0 100 100" style="width:44px;height:44px"><g fill="#f6f4ef"><rect x="8" y="42" width="12" height="46" rx="6"/><rect x="25" y="22" width="12" height="66" rx="6"/><rect x="42" y="12" width="12" height="76" rx="6"/><rect x="59" y="20" width="12" height="68" rx="6"/><rect x="76" y="36" width="12" height="52" rx="6"/></g></svg></div>
+        <div><b>Что вы сейчас делаете?</b><span>DCL-832 · сейчас</span></div></div>
+      <div id="scr-ans" class="scr">
+        <div class="p-title">Что вы делаете?</div>
+        <div class="p-chips"><span class="p-chip on">Работа</span><span class="p-chip">Еда</span><span class="p-chip">Дорога</span><span class="p-chip">Дом</span><span class="p-chip">Отдых</span></div>
+        <div class="p-qs">
+          <div class="p-row">Я хочу?<span class="yn"><i id="dY">Да</i><i id="dN">Нет</i></span></div>
+          <div class="p-row">Я согласен?<span class="yn"><i id="cY">Да</i><i id="cN">Нет</i></span></div>
+          <div class="p-row">Можно?<span class="yn"><i id="lY">Да</i><i id="lN">Нет</i></span></div>
+        </div>
+        <div class="p-code"><span id="pc0">·</span><span id="pc1">·</span><span id="pc2">·</span></div>
+      </div>
+      <div id="scr-stat" class="scr">
+        <div class="p-title">Анализ · 7 дней</div>
+        <div class="p-stat">
+          <div class="l">Уровень свободы</div>
+          <div class="n"><span id="stat-num">0</span>%</div>
+          <div class="bar"><i id="stat-g" class="b1" style="width:0"></i><i id="stat-r" class="b0" style="width:0"></i></div>
+          <div class="legend"><span><i class="dot b1"></i>по желанию</span><span><i class="dot b0"></i>вопреки</span></div>
+        </div>
+        <div class="p-stat" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><div class="l">Нагрузка</div><div style="font-size:60px;font-weight:800">62<span class="muted" style="font-size:30px">/100</span></div></div>
+          <div><div class="l">Чаще всего</div><div style="font-size:40px;font-weight:800;margin-top:8px">не хочу <span class="red mono">D=0</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Результат -->
+  <div id="s5-title" class="abs center h2" style="top:200px">И самое интересное</div>
+  <div id="s5-list" class="abs" style="left:150px;top:350px;display:flex;flex-direction:column;gap:30px">
+    <div id="x1" class="row-x"><span class="strike" id="sx1">Деньги</span></div>
+    <div id="x2" class="row-x"><span class="strike" id="sx2">Люди вокруг</span></div>
+    <div id="x3" class="row-x"><span class="strike" id="sx3">Нехватка времени</span></div>
+  </div>
+  <div id="s5-day" class="abs" style="left:78px;top:740px">
+    <div class="h3 muted" style="font-size:36px;margin-bottom:22px" id="day-label">Твой день</div>
+    <div class="day" id="day"></div>
+  </div>
+  <div id="s5-stamp" class="abs center" style="top:870px"><span class="stamp">НАДО</span></div>
+
+  <!-- 6. Финал -->
+  <div id="s6-keep" class="abs" style="left:90px;right:90px;top:200px;display:flex;flex-direction:column;gap:22px">
+    <div class="mini" style="display:flex;align-items:center;gap:26px"><div class="check">✓</div><div><small>деньги</small>по-прежнему нужны</div></div>
+    <div class="mini" style="display:flex;align-items:center;gap:26px"><div class="check">✓</div><div><small>правила</small>никуда не исчезают</div></div>
+  </div>
+  <div id="s6-more" class="abs center h2" style="top:600px">Больше <span class="green">«хочу»</span>,<br>меньше <span class="red">«должен»</span></div>
+  <div id="s6-quote" class="abs center h1" style="top:360px;padding:0 90px">Нельзя улучшить то, что невозможно измерить</div>
+  <div id="s6-final" class="abs center" style="top:260px">
+    <div class="h3 muted">Начни измерять свой</div>
+    <div class="h1" style="font-size:110px;margin-top:6px">уровень свободы</div>
+    <div style="display:flex;justify-content:center;margin-top:48px"><div class="gauge"><i id="gauge" style="width:0"></i></div></div>
+    <div class="mono" style="font-size:72px;font-weight:800;margin-top:22px"><span id="gauge-num">0</span>%</div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:22px;margin-top:60px">
+      <svg class="palm" viewBox="0 0 100 100" style="width:90px;height:90px"><rect x="8" y="42" width="12" height="46" rx="6"/><rect x="25" y="22" width="12" height="66" rx="6"/><rect x="42" y="12" width="12" height="76" rx="6"/><rect x="59" y="20" width="12" height="68" rx="6"/><rect x="76" y="36" width="12" height="52" rx="6"/></svg>
+      <span class="url">dcl832.click</span>
+    </div>
+  </div>
+
+  <div id="cap"></div>
+</div>
+
+<script>
+// ---------- тайминги из озвучки (секунды) ----------
+const T = {
+  q: 0, two: 2.46, money: 4.56, count: 6.2, countEnd: 8.9, rating: 9.44, credit: 11.8, taxi: 13.06, rep: 14.26, success: 19.12, reliab: 19.94,
+  s2: 20.96, happy: 23.56, stress: 24.64, joy: 26.6, where: 27.82,
+  s3: 34.38, dcl: 37.2, C: 40.1, cMoney: 46.06, L: 51.76, lRating: 58.34, D: 60.46, nobody: 64.32,
+  s4: 65.68, ping: 69.06, ask: 72.24, want: 73.58, agree: 74.94, can: 76.48, stats: 78.54, own: 81.74, against: 83.84,
+  s5: 84.56, x1: 87.92, x2: 89.02, x3: 90.44, without: 92.72, nado: 97.44,
+  s6: 98.68, keep2: 101.16, more: 104.48, less: 107.68, quote: 109.6, final: 112.62, level: 114.6, END: 118.3,
+};
+const SCENES = [[0, T.s2], [T.s2, T.s3], [T.s3, T.s4], [T.s4, T.s5], [T.s5, T.s6], [T.s6, 999]];
+
+// ---------- помощники ----------
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const back = (x) => { x = clamp(x); const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const inn = (t, a, d = 0.5) => ease((t - a) / d);
+/** видимость 0..1: появление в a, исчезновение в b */
+const vis = (t, a, b = 1e9, fi = 0.5, fo = 0.4) => Math.min(inn(t, a, fi), 1 - ease((t - b) / fo));
+function put(el, o, { x = 0, y = 0, s = 1 } = {}) {
+  if (typeof el === 'string') el = $(el);
+  el.style.opacity = o.toFixed(3);
+  el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${s.toFixed(4)})`;
+  el.style.visibility = o < 0.002 ? 'hidden' : 'visible';
+}
+/** появление с подъёмом */
+function rise(el, t, a, b, dy = 50, opts = {}) {
+  const o = vis(t, a, b, opts.fi, opts.fo);
+  const p = inn(t, a, opts.fi || 0.5);
+  put(el, o, { y: (1 - p) * dy + (opts.y || 0), x: opts.x || 0, s: opts.s || 1 });
+  return o;
+}
+const fmtMoney = (n) => Math.round(n).toLocaleString('ru-RU').replace(/ /g, ' ');
+
+// ---------- субтитры ----------
+const FIX = { 'твоем': 'твоём', 'надежности.': 'надёжности.', 'свое': 'своё', 'счете.': 'счёте.', 'счету.': 'счёту.' };
+let CHUNKS = [];
+function buildCaptions(segments) {
+  const words = [];
+  for (const s of segments) for (const w of s.words) {
+    let txt = FIX[w.w] || w.w;
+    if (/^[-–—]/.test(txt) && words.length && txt !== '–') { words[words.length - 1].w += txt; continue; }
+    words.push({ w: txt, s: w.s, e: w.e });
+  }
+  let cur = [];
+  const flush = () => { if (cur.length) CHUNKS.push(cur); cur = []; };
+  for (const w of words) {
+    cur.push(w);
+    const len = cur.map((x) => x.w).join(' ').length;
+    if (/[.?!]$/.test(w.w) || (/[,:]$/.test(w.w) && len > 18) || len > 30) flush();
+  }
+  flush();
+}
+let lastCap = null;
+function renderCaption(t) {
+  let chunk = null;
+  for (let i = 0; i < CHUNKS.length; i++) {
+    const c = CHUNKS[i], next = CHUNKS[i + 1];
+    const end = Math.min(c[c.length - 1].e + 0.6, next ? next[0].s - 0.05 : 1e9);
+    if (t >= c[0].s - 0.15 && t < end) { chunk = c; break; }
+  }
+  const cap = $('cap');
+  if (!chunk) { cap.style.opacity = 0; return; }
+  if (lastCap !== chunk) { cap.innerHTML = chunk.map((w) => `<span>${w.w}</span> `).join(''); lastCap = chunk; }
+  cap.style.opacity = 1;
+  const spans = cap.querySelectorAll('span');
+  chunk.forEach((w, i) => {
+    spans[i].className = t >= w.s ? (t < w.e + 0.05 ? 'on cur' : 'on') : '';
+  });
+}
+
+// ---------- день из 12 действий ----------
+const DAY0 = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0];
+const FLIP = [0, 1, 3, 4, 5, 7, 8, 9, 10]; // какие клетки становятся зелёными в финале
+(function buildDay() { $('day').innerHTML = DAY0.map((_, i) => `<div class="blk" id="b${i}"></div>`).join(''); })();
+
+// ---------- кадр ----------
+function render(t) {
+  const sv = SCENES.map(([a, b]) => vis(t, a, b - 0.35, 0.45, 0.35));
+
+  // 1. Две цифры
+  rise('s1-q', t, T.q, T.two - 0.2, 40);
+  const two = vis(t, T.two, T.money + 0.2, 0.35, 0.3);
+  put('s1-two', two * sv[0], { y: 40 });
+  rise('s1-money', t, T.money, T.s2 - 0.35, 80);
+  $('money-num').textContent = fmtMoney(1250000 * ease((t - T.count) / (T.countEnd - T.count)));
+  put('s1-money', vis(t, T.money, T.s2 - 0.35), { y: (1 - inn(t, T.money, 0.6)) * 80 - inn(t, T.two, 0.01) * 0 });
+  rise('s1-rating', t, T.rating, T.s2 - 0.35, 80);
+  rise('chip-credit', t, T.credit, 1e9, 20); rise('chip-taxi', t, T.taxi, 1e9, 20); rise('chip-rep', t, T.rep, 1e9, 20);
+  put('tag-success', inn(t, T.success, 0.35), { s: back((t - T.success) / 0.45) });
+  put('tag-reliab', inn(t, T.reliab, 0.35), { s: back((t - T.reliab) / 0.45) });
+  // вопрос уезжает вверх, когда появились карточки
+  put('s1-q', vis(t, T.q, T.two - 0.2, 0.5, 0.3), { y: (1 - inn(t, T.q, 0.5)) * 40 });
+
+  // 2. Проблема
+  put('s2-minis', sv[1] * (1 - 0.55 * inn(t, T.happy, 0.6)), { y: (1 - inn(t, T.s2, 0.5)) * -30 });
+  rise('s2-title', t, T.s2, T.s3 - 0.35, 40);
+  rise('w1', t, T.happy, 1e9, 30); rise('w2', t, T.stress, 1e9, 30); rise('w3', t, T.joy, 1e9, 30);
+  put('s2-wants', sv[1]);
+  const q = vis(t, T.where, T.s3 - 0.35);
+  put('s2-third', q, { y: (1 - inn(t, T.where, 0.6)) * 60 });
+  put('qmark', 1, { s: 1 + 0.08 * Math.sin((t - T.where) * 5) * clamp((t - T.where) * 2) });
+
+  // 3. Модель DCL
+  rise('s3-title', t, T.s3, T.dcl, 40);
+  put('s3-tiles', sv[2], { y: (1 - inn(t, T.s3, 0.5)) * 40 });
+  ['D', 'C', 'L'].forEach((k, i) => {
+    const appear = T.dcl + 0.25 * i;
+    put('t-' + k, inn(t, appear, 0.45), { s: back((t - appear) / 0.6) * 1 });
+  });
+  const focus = t >= T.D ? 'D' : t >= T.L ? 'L' : t >= T.C ? 'C' : null;
+  ['D', 'C', 'L'].forEach((k) => $('t-' + k).classList.toggle('on', focus === k));
+  put('u-C', inn(t, T.cMoney, 0.5), { y: (1 - inn(t, T.cMoney, 0.5)) * 30 });
+  put('u-L', inn(t, T.lRating, 0.5), { y: (1 - inn(t, T.lRating, 0.5)) * 30 });
+  put('u-D', inn(t, T.nobody, 0.5) * 0.8, { y: (1 - inn(t, T.nobody, 0.5)) * 30, s: 1.6 });
+  rise('p-C', t, T.C, T.L - 0.2, 60);
+  rise('p-L', t, T.L, T.D - 0.2, 60);
+  rise('p-D', t, T.D, T.s4 - 0.35, 60);
+
+  // 4. Приложение
+  put('s4-phone', sv[3], { y: (1 - inn(t, T.s4, 0.6)) * 120 });
+  put('scr-logo', 1 - inn(t, T.ask, 0.3));
+  const nIn = inn(t, T.ping, 0.45), nOut = inn(t, T.ask - 0.1, 0.3);
+  put('notif', nIn * (1 - nOut), { y: (1 - nIn) * -140 });
+  put('scr-ans', inn(t, T.ask, 0.35) * (1 - inn(t, T.stats, 0.3)));
+  const tap = (idY, idN, at, yes) => { $(idY).className = t >= at && yes ? 'y' : ''; $(idN).className = t >= at && !yes ? 'n' : ''; };
+  tap('dY', 'dN', T.want + 0.3, false); tap('cY', 'cN', T.agree + 0.3, true); tap('lY', 'lN', T.can + 0.3, true);
+  [[T.want + 0.3, '0'], [T.agree + 0.3, '1'], [T.can + 0.3, '1']].forEach(([at, v], i) => {
+    const el = $('pc' + i); const on = t >= at;
+    el.textContent = on ? v : '·'; el.className = on ? 'c' + v : '';
+  });
+  put('scr-stat', inn(t, T.stats, 0.35));
+  const pct = 38 * ease((t - T.stats - 0.3) / 1.6);
+  $('stat-num').textContent = Math.round(pct);
+  $('stat-g').style.width = pct + '%';
+  $('stat-r').style.width = (62 * ease((t - T.stats - 0.3) / 1.6)) + '%';
+  $('stat-g').style.filter = t >= T.own && t < T.against ? 'brightness(1.15)' : '';
+
+  // 5. Результат
+  rise('s5-title', t, T.s5, T.s6 - 0.35, 40);
+  rise('s5-list', t, T.s5, T.without - 0.2, 0);
+  [['x1', 'sx1', T.x1], ['x2', 'sx2', T.x2], ['x3', 'sx3', T.x3]].forEach(([row, s, at]) => {
+    rise(row, t, at - 0.25, 1e9, 30);
+    $(s).style.setProperty('--s', ease((t - at - 0.35) / 0.4).toFixed(3));
+  });
+  const dayVis = Math.max(vis(t, T.without - 0.1, T.s6 - 0.35), vis(t, T.more - 0.6, T.quote - 0.2));
+  put('s5-day', dayVis, { y: (t < T.s6 ? (1 - inn(t, T.without - 0.1, 0.5)) * 50 : 0) + (t >= T.s6 ? -330 : -330 * inn(t, T.without - 0.1, 0.01) * 0) + (t < T.s6 ? -330 : 0) });
+  $('day-label').innerHTML = t >= T.more ? 'Твой день: больше <span class="green">«хочу»</span>' : 'Твой день';
+  DAY0.forEach((g, i) => {
+    let green = g === 1;
+    const k = FLIP.indexOf(i);
+    if (k >= 0 && t >= T.more + 0.35 * k) green = true;
+    const b = $('b' + i);
+    b.style.background = green ? 'var(--one)' : 'var(--zero)';
+    const pop = k >= 0 ? clamp(1 - Math.abs(t - (T.more + 0.35 * k)) / 0.2) : 0;
+    b.style.transform = `scale(${1 + 0.12 * pop})`;
+  });
+  const st = vis(t, T.nado - 0.1, T.s6 - 0.35, 0.25, 0.3);
+  put('s5-stamp', st, { s: 1.6 - 0.6 * back((t - T.nado + 0.1) / 0.35), y: -20 });
+  $('s5-stamp').style.transform += ' rotate(-8deg)';
+
+  // 6. Финал
+  rise('s6-keep', t, T.s6, T.more - 0.4, 50);
+  $('s6-keep').children[1].style.opacity = inn(t, T.keep2, 0.4);
+  rise('s6-more', t, T.more - 0.4, T.quote - 0.3, 40, { y: -400 });
+  rise('s6-quote', t, T.quote, T.final - 0.25, 40);
+  rise('s6-final', t, T.final, 1e9, 50);
+  const gp = ease((t - T.level) / 2.2);
+  $('gauge').style.width = (100 * gp) + '%';
+  $('gauge-num').textContent = Math.round(100 * gp);
+
+  // бренд прячется на экране с телефоном и в финале
+  put('brand', 1 - Math.max(sv[3], inn(t, T.final, 0.4)) * 0.9);
+  renderCaption(t);
+}
+
+window.render = render;
+window.setWords = (segments) => { CHUNKS = []; lastCap = null; buildCaptions(segments); };
+window.TIMES = T;
+// предпросмотр в браузере: index.html?t=48
+(async () => {
+  const p = new URLSearchParams(location.search);
+  if (!window.__RENDERER__) {
+    try { window.setWords(await (await fetch('assets/words.json')).json()); } catch (e) { console.warn(e); }
+    render(Number(p.get('t') || 0));
+  }
+})();
+</script>
+</body>
+</html>
