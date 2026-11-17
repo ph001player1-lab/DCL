@@ -428,7 +428,7 @@ const ofActions = (n) => plural(n, 'действия', 'действий', 'де
 function summaryCards(s, period) {
   return `
     <section class="card hero">
-      <div class="label">Рейтинг свободы${period ? ' за период' : ' сегодня'}</div>
+      <div class="label">Уровень свободы${period ? ' за период' : ' сегодня'}</div>
       <div class="big">${s.n ? pct(s.fullShare) : '—'}</div>
       <div class="sub">${s.n ? `${s.full} из ${s.n} ${ofActions(s.n)} без нулей (111 или 11111)` : 'Пока нет отмеченных действий'}</div>
       ${loadBar(s)}
