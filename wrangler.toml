@@ -3,16 +3,23 @@ name = "dcl832"
 main = "src/worker.js"
 compatibility_date = "2026-11-01"
 
-# Лендинг и PWA (статические файлы). Всё, что не нашлось в ./public, попадает в воркер (/api/*).
-[assets]
-directory = "./public"
-binding = "ASSETS"
+# Свой домен (зона dcl832.click в аккаунте Cloudflare). Должно стоять до первой [секции].
+routes = [
+  { pattern = "dcl832.click", custom_domain = true },
+  { pattern = "www.dcl832.click", custom_domain = true },
+]
 
-# База D1 (SQLite). database_id появится после `npx wrangler d1 create dcl832` — вставьте его сюда.
+# Лендинг и PWA: файлы из ./public встраиваются в воркер (src/static-files.js) при каждой сборке.
+# Воркер сам отдаёт их, перенаправляет www на основной домен и обрабатывает /api/*.
+[build]
+command = "node scripts/build-static.mjs"
+watch_dir = "public"
+
+# База D1 (SQLite), регион — Восточная Европа.
 [[d1_databases]]
 binding = "DB"
 database_name = "dcl832"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "738ba33c-3399-433c-a64e-d379a07de7f6"
 migrations_dir = "migrations"
 
 # Крон раз в минуту: планирует сигналы и рассылает те, время которых наступило.
@@ -25,7 +32,3 @@ VAPID_SUBJECT = "https://dcl832.click"
 [observability]
 enabled = true
 
-# Свой домен: раскомментируйте, когда dcl832.click будет добавлен в аккаунт Cloudflare.
-# routes = [
-#   { pattern = "dcl832.click", custom_domain = true },
-# ]

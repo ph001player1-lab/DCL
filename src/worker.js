@@ -3,6 +3,7 @@
 
 import { sendPush, bytesToB64u } from './webpush.js';
 import { isValidTz, localDate, nextLocalMidnight, planDay } from './schedule.js';
+import STATIC from './static-files.js';
 
 const ANSWER_WINDOW_MIN = 30;           // сколько минут сигнал ждёт ответа
 const SEND_GRACE_MS = 10 * 60_000;             // опоздавший больше чем на 10 мин сигнал не отправляем
@@ -333,9 +334,38 @@ async function runCron(env, now = Date.now()) {
   return stats;
 }
 
+// ---------- статика (лендинг, приложение, иконки) ----------
+
+const decoded = new Map();
+const NO_CACHE = /\.(html|js|css|webmanifest)$/;
+
+function serveStatic(request, url) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method Not Allowed', { status: 405 });
+  let path = decodeURIComponent(url.pathname);
+  if (['/app', '/admin'].includes(path)) return Response.redirect(`${url.origin}${path}/${url.search}`, 301);
+  if (path.endsWith('/')) path += 'index.html';
+  const f = STATIC[path];
+  const headers = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin' };
+  if (!f) return new Response('Не найдено', { status: 404, headers: { ...headers, 'content-type': 'text/plain; charset=utf-8' } });
+  headers['content-type'] = f.type;
+  headers.etag = f.etag;
+  headers['cache-control'] = NO_CACHE.test(path) ? 'no-cache' : 'public, max-age=86400';
+  if (request.headers.get('if-none-match') === f.etag) return new Response(null, { status: 304, headers });
+  let body = decoded.get(path);
+  if (!body) {
+    body = Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0));
+    decoded.set(path, body);
+  }
+  return new Response(request.method === 'HEAD' ? null : body, { headers });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.hostname.startsWith('www.')) {
+      url.hostname = url.hostname.slice(4);
+      return Response.redirect(url.toString(), 301);
+    }
     if (url.pathname.startsWith('/api/')) {
       try {
         return await handleApi(request, env, url);
@@ -345,7 +375,7 @@ export default {
         return err(500, 'server_error');
       }
     }
-    return env.ASSETS.fetch(request);
+    return serveStatic(request, url);
   },
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runCron(env, event.scheduledTime).then((s) => {
