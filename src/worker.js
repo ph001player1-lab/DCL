@@ -356,6 +356,32 @@ async function serveBook(request, env, url) {
   });
 }
 
+// ---------- видео (MP4 в том же KV; поддержка Range — нужна Safari для перемотки) ----------
+
+const MEDIA = { 'dcl832.mp4': 'video/mp4' };
+
+async function serveMedia(request, env, url) {
+  const key = url.pathname.slice('/media/'.length);
+  const type = MEDIA[key];
+  const buf = type && env.BOOKS ? await env.BOOKS.get('media/' + key, { type: 'arrayBuffer', cacheTtl: 3600 }) : null;
+  if (!buf) return new Response('Не найдено', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  const size = buf.byteLength;
+  const headers = { 'content-type': type, 'accept-ranges': 'bytes', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' };
+  const m = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') || '');
+  if (m) {
+    let start = m[1] === '' ? size - Number(m[2]) : Number(m[1]);
+    let end = m[1] === '' || m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+    if (!(start >= 0 && start <= end && start < size)) {
+      return new Response(null, { status: 416, headers: { ...headers, 'content-range': `bytes */${size}` } });
+    }
+    headers['content-range'] = `bytes ${start}-${end}/${size}`;
+    headers['content-length'] = String(end - start + 1);
+    return new Response(request.method === 'HEAD' ? null : buf.slice(start, end + 1), { status: 206, headers });
+  }
+  headers['content-length'] = String(size);
+  return new Response(request.method === 'HEAD' ? null : buf, { headers });
+}
+
 // ---------- статика (лендинг, приложение, иконки) ----------
 
 const decoded = new Map();
@@ -398,6 +424,7 @@ export default {
       }
     }
     if (url.pathname.startsWith('/books/')) return serveBook(request, env, url);
+    if (url.pathname.startsWith('/media/')) return serveMedia(request, env, url);
     return serveStatic(request, url);
   },
   async scheduled(event, env, ctx) {
