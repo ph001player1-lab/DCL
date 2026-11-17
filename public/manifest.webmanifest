@@ -1,0 +1,18 @@
+{
+  "id": "/app/",
+  "name": "DCL-832 — хочу, согласен, можно",
+  "short_name": "DCL-832",
+  "description": "Случайные замеры в течение дня: где в вашем дне копится стресс и сколько времени проходит с «открытой ладонью».",
+  "lang": "ru",
+  "start_url": "/app/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f4ef",
+  "theme_color": "#24684b",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

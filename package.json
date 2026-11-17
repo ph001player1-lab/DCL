@@ -1,0 +1,17 @@
+{
+  "name": "dcl832",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply dcl832 --local",
+    "db:migrate:remote": "wrangler d1 migrations apply dcl832 --remote",
+    "deploy": "wrangler deploy",
+    "secrets:dev": "node scripts/setup-secrets.mjs --dev",
+    "secrets:deploy": "node scripts/setup-secrets.mjs --deploy",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.163.0"
+  }
+}

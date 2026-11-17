@@ -1,0 +1,31 @@
+# Cloudflare Worker для dcl832.click
+name = "dcl832"
+main = "src/worker.js"
+compatibility_date = "2026-11-01"
+
+# Лендинг и PWA (статические файлы). Всё, что не нашлось в ./public, попадает в воркер (/api/*).
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# База D1 (SQLite). database_id появится после `npx wrangler d1 create dcl832` — вставьте его сюда.
+[[d1_databases]]
+binding = "DB"
+database_name = "dcl832"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Крон раз в минуту: планирует сигналы и рассылает те, время которых наступило.
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+VAPID_SUBJECT = "https://dcl832.click"
+
+[observability]
+enabled = true
+
+# Свой домен: раскомментируйте, когда dcl832.click будет добавлен в аккаунт Cloudflare.
+# routes = [
+#   { pattern = "dcl832.click", custom_domain = true },
+# ]

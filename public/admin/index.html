@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>DCL-832 · Данные</title>
+  <style>
+    :root { --bg: #f6f4ef; --surface: #fff; --ink: #1c2220; --muted: #626a66; --line: #e3dfd6; --one: #2e7d5b; --zero: #c8553a; color-scheme: light; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #111513; --surface: #1a1f1d; --ink: #eaeee9; --muted: #9ca59f; --line: #2c3430; --one: #58b98a; --zero: #ec8a6c; color-scheme: dark; }
+    }
+    :root[data-theme="dark"] { --bg: #111513; --surface: #1a1f1d; --ink: #eaeee9; --muted: #9ca59f; --line: #2c3430; --one: #58b98a; --zero: #ec8a6c; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; }
+    h1 { margin: 0 0 16px; font-size: 1.5rem; }
+    h2 { font-size: 1.05rem; margin: 0 0 10px; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; overflow-x: auto; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+    .kpi b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+    .kpi span { color: var(--muted); font-size: .85rem; }
+    table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+    td.num, th.num { text-align: right; }
+    code { font: 700 .95rem ui-monospace, Menlo, monospace; letter-spacing: .05em; }
+    input, button { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+    button { background: var(--one); color: #fff; border-color: transparent; font-weight: 600; cursor: pointer; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+    .muted { color: var(--muted); }
+    .bar { display: inline-block; height: 8px; background: var(--zero); border-radius: 4px; vertical-align: middle; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>DCL-832 · Анонимные данные</h1>
+  <form class="row" id="login">
+    <input type="password" id="token" placeholder="Пароль админки (ADMIN_TOKEN)" autocomplete="current-password" style="flex:1;min-width:240px">
+    <button>Показать</button>
+  </form>
+  <div id="out"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const CAT = { work: 'Работа', study: 'Учёба', food: 'Еда', road: 'Дорога', home: 'Дом, быт', care: 'Забота о близких', sport: 'Спорт, тело', rest: 'Отдых', screen: 'Телефон, экран', talk: 'Общение', other: 'Другое' };
+const PART = { partner: 'Партнёр', child: 'Ребёнок', parent: 'Родитель', colleague: 'Коллега', friend: 'Друг', other: 'Другой', '': '—' };
+const COMP = { alone: 'Один', pair: 'Вдвоём', group: '3+' };
+const pct = (a, b) => (b ? Math.round((a / b) * 100) + '%' : '—');
+let token = '';
+try { token = sessionStorage.getItem('dcl-admin') || ''; } catch {}
+if (token) load();
+
+$('login').addEventListener('submit', (e) => {
+  e.preventDefault();
+  token = $('token').value.trim();
+  try { sessionStorage.setItem('dcl-admin', token); } catch {}
+  load();
+});
+
+async function load() {
+  const res = await fetch('/api/admin/summary', { headers: { authorization: 'Bearer ' + token } });
+  if (!res.ok) { $('out').innerHTML = '<p class="muted">Неверный пароль.</p>'; return; }
+  $('login').hidden = true;
+  const d = await res.json();
+  const u = d.users, t = d.totals;
+  const pings = Object.fromEntries(d.pings_30d.map((r) => [r.status, r.n]));
+  const delivered = (pings.sent || 0) + (pings.answered || 0) + (pings.skipped || 0) + (pings.expired || 0);
+  $('out').innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><b>${u.total}</b><span>устройств</span></div>
+      <div class="kpi"><b>${u.with_push || 0}</b><span>с включёнными сигналами</span></div>
+      <div class="kpi"><b>${u.consented || 0}</b><span>дали согласие</span></div>
+      <div class="kpi"><b>${u.active_7d || 0}</b><span>активны за 7 дней</span></div>
+      <div class="kpi"><b>${t.n}</b><span>ответов на сигналы</span></div>
+      <div class="kpi"><b>${pct(pings.answered || 0, delivered)}</b><span>сигналов отвечено (30 дн.)</span></div>
+      <div class="kpi"><b>${pct(t.full, t.n)}</b><span>111 / 11111</span></div>
+      <div class="kpi"><b>${pct(t.eustress, t.n)}</b><span>эустресс (D=1, C=1)</span></div>
+    </div>
+    <p class="row" style="margin-top:14px"><button id="csv">Скачать все ответы (CSV)</button><span class="muted">Можно открыть в Excel или Google Таблицах.</span></p>
+    <div class="card"><h2>Частые коды</h2><table><tr><th>Код</th><th>С кем</th><th class="num">Ответов</th><th class="num">Доля</th></tr>
+      ${d.top_codes.map((r) => `<tr><td><code>${esc(r.code)}</code></td><td>${COMP[r.company] || r.company}</td><td class="num">${r.n}</td><td class="num">${pct(r.n, t.n)}</td></tr>`).join('')}</table></div>
+    <div class="card"><h2>По видам действий</h2><table><tr><th>Действие</th><th class="num">Ответов</th><th>С нулями</th><th class="num">D=0</th><th class="num">C=0</th><th class="num">L=0</th></tr>
+      ${d.by_category.map((r) => `<tr><td>${CAT[r.category] || esc(r.category)}</td><td class="num">${r.n}</td><td><span class="bar" style="width:${(r.with_zero / r.n) * 80}px"></span> ${pct(r.with_zero, r.n)}</td><td class="num">${r.d0}</td><td class="num">${r.c0}</td><td class="num">${r.l0}</td></tr>`).join('')}</table></div>
+    <div class="card"><h2>С кем</h2><table><tr><th>Состав</th><th>Второй</th><th class="num">Ответов</th><th class="num">Не 111/11111</th><th class="num">D₂=0</th><th class="num">C₂=0</th><th class="num">«не знаю»</th></tr>
+      ${d.by_company.map((r) => `<tr><td>${COMP[r.company] || r.company}</td><td>${PART[r.partner] || esc(r.partner)}</td><td class="num">${r.n}</td><td class="num">${pct(r.not_full, r.n)}</td><td class="num">${r.d2_0 ?? 0}</td><td class="num">${r.c2_0 ?? 0}</td><td class="num">${r.unknown ?? 0}</td></tr>`).join('')}</table></div>
+    <div class="card"><h2>По часам (местное время)</h2><table><tr><th>Час</th><th class="num">Ответов</th><th>Не 111/11111</th></tr>
+      ${d.by_hour.map((r) => `<tr><td>${r.hour}:00</td><td class="num">${r.n}</td><td><span class="bar" style="width:${(r.not_full / r.n) * 80}px"></span> ${pct(r.not_full, r.n)}</td></tr>`).join('')}</table></div>`;
+  $('csv').addEventListener('click', async () => {
+    const r = await fetch('/api/admin/answers.csv', { headers: { authorization: 'Bearer ' + token } });
+    const url = URL.createObjectURL(await r.blob());
+    Object.assign(document.createElement('a'), { href: url, download: 'dcl832-answers.csv' }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  });
+}
+</script>
+</body>
+</html>
