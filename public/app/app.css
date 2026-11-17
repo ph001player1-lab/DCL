@@ -5,7 +5,7 @@
   --ink: #1c2220;
   --muted: #69716d;
   --line: #e3dfd6;
-  --one: #2e7d5b;        /* 1 — да, открытая ладонь */
+  --one: #2e7d5b;        /* 1 — да, согласовано */
   --one-soft: #dcefe5;
   --zero: #c8553a;       /* 0 — нет, стресс */
   --zero-soft: #f7e1da;
@@ -99,6 +99,8 @@ h2 { font-size: 1.05rem; }
 .code.zero { background: var(--zero-soft); color: var(--zero); }
 .code.unk { background: var(--unk-soft); }
 
+.notice .ico { display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; }
+.notice.install { background: var(--one-soft); color: var(--ink); }
 .notice { display: block; text-align: left; width: 100%; border: 0; border-radius: var(--radius); padding: 14px 16px; background: var(--surface-2); }
 .pending {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; width: 100%;

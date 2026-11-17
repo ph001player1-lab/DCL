@@ -39,3 +39,10 @@ test('planDay: window across midnight and only future pings', () => {
   const now = ts[1];
   assert.equal(planDay(u, '2026-11-20', now, () => 0.5).length, 2);
 });
+
+test('planDay: up to 20 pings, still ordered and inside window', () => {
+  const u = { tz: 'Europe/Moscow', wake_start: 420, wake_end: 1380, pings_per_day: 20 };
+  const ts = planDay(u, '2026-11-20', 0);
+  assert.equal(ts.length, 20);
+  for (let i = 1; i < ts.length; i++) assert.ok(ts[i] - ts[i - 1] >= 14 * 60_000, 'gap >= 14 min');
+});

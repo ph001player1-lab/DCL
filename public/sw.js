@@ -1,5 +1,5 @@
 // Service worker DCL-832: офлайн-работа, приём сигналов (push) и действия из уведомления.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `dcl832-${VERSION}`;
 const SHELL = [
   '/', '/app/', '/app/app.css', '/app/app.js', '/app/dcl.js', '/app/store.js', '/app/api.js', '/app/stats.js',
@@ -20,7 +20,7 @@ self.addEventListener('activate', (e) => {
 // Сначала сеть (всегда свежая версия), при отсутствии сети — кэш
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/books/')) return;
   e.respondWith((async () => {
     try {
       const res = await fetch(e.request);

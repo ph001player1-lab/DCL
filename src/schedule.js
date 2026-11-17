@@ -58,7 +58,7 @@ export function planDay({ tz, wake_start, wake_end, pings_per_day }, dateStr, no
   let start = wake_start;
   let end = wake_end;
   if (end <= start) end += 1440; // окно через полночь, например 10:00–02:00
-  const n = Math.max(1, Math.min(12, pings_per_day | 0));
+  const n = Math.max(1, Math.min(20, pings_per_day | 0));
   const block = (end - start) / n;
   const out = [];
   for (let i = 0; i < n; i++) {

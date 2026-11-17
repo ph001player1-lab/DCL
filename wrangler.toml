@@ -22,6 +22,11 @@ database_name = "dcl832"
 database_id = "738ba33c-3399-433c-a64e-d379a07de7f6"
 migrations_dir = "migrations"
 
+# Книги в PDF (Workers KV). Загрузка: см. README, раздел «Книги».
+[[kv_namespaces]]
+binding = "BOOKS"
+id = "fb718dd8a7fd40cfb82e250cf0d83fef"
+
 # Крон раз в минуту: планирует сигналы и рассылает те, время которых наступило.
 [triggers]
 crons = ["* * * * *"]

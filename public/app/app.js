@@ -3,7 +3,7 @@ import { CATEGORIES, CATEGORY_LABEL, PARTNERS, PARTNER_LABEL, PARTNER_WITH, COMP
   decodeCode, formatCode, BIT_NAMES, BIT_SHORT, zeroBits } from './dcl.js';
 import { kvGet, kvSet, put, get, all, since, putMany, clear } from './store.js';
 import { api, getCreds, setCreds, ApiError } from './api.js';
-import { summarize, byDay, heatmap, targets, fmtDuration, windowMinutes } from './stats.js';
+import { summarize, byDay, heatmap, targets, windowMinutes } from './stats.js';
 
 const $view = document.getElementById('view');
 const $tabs = document.getElementById('tabs');
@@ -34,6 +34,19 @@ const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.p
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const pct = (x) => `${Math.round(x * 100)}%`;
+const isMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || isIOS();
+
+let installEvt = null; // событие установки PWA (Chrome на Android)
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; if (S.booted && !['answer', 'new'].includes(route().name)) render(); });
+window.addEventListener('appinstalled', () => { installEvt = null; toast('Приложение установлено — открывайте его с экрана телефона'); });
+
+function installNotice() {
+  if (isStandalone()) return '';
+  if (installEvt) return `<button class="notice install" data-act="install"><b>Установите DCL-832 на телефон.</b> Так сигналы приходят надёжнее, а приложение открывается одним касанием. <u>Установить</u></button>`;
+  if (isIOS()) return `<div class="notice"><b>Установите DCL-832 на экран «Домой»:</b> «Поделиться» <span class="ico">⬆︎</span> → «На экран „Домой“». На iPhone сигналы приходят только в установленное приложение.</div>`;
+  if (isMobile()) return `<div class="notice"><b>Установите DCL-832 на телефон:</b> меню браузера ⋮ → «Установить приложение» (или «Добавить на главный экран»).</div>`;
+  return `<div class="notice"><b>DCL-832 рассчитан на телефон.</b> Откройте dcl832.click на смартфоне и установите приложение.</div>`;
+}
 const plural = (n, one, few, many) => {
   const m10 = n % 10, m100 = n % 100;
   return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
@@ -218,7 +231,7 @@ function renderOnboarding() {
         <li><span class="bit">C</span><div><b>Согласен?</b><small>Разум «за», понимая последствия.</small></div></li>
         <li><span class="bit">L</span><div><b>Можно?</b><small>Правила, место, договорённости.</small></div></li>
       </ul>
-      <p class="muted">Ноль в коде — это стресс в самом действии. <b>111</b> (или <b>11111</b> вдвоём) — «открытая ладонь».</p>
+      <p class="muted">Ноль в коде — это стресс в самом действии. Код без нулей — <b>111</b> (или <b>11111</b> вдвоём) — это согласованное действие.</p>
       <button class="btn primary wide" data-act="ob-next">Начать</button>`;
   } else if (o.step === 2) {
     html = `
@@ -230,7 +243,7 @@ function renderOnboarding() {
       </div>
       <div class="field"><span>Сигналов в день</span>
         <div class="stepper"><button class="btn" data-act="ob-ppd" data-d="-1" aria-label="Меньше">−</button><b>${o.pings_per_day}</b><button class="btn" data-act="ob-ppd" data-d="1" aria-label="Больше">+</button></div>
-        <small class="muted">6 — хороший баланс. Картина дня складывается примерно за неделю.</small>
+        <small class="muted">От 3 до 20. 6–8 — хороший баланс: картина складывается примерно за неделю.</small>
       </div>
       <button class="btn primary wide" data-act="ob-next">Дальше</button>`;
   } else if (o.step === 3) {
@@ -268,6 +281,7 @@ function renderOnboarding() {
       html = `
         <h1 class="ob-title">Включите сигналы</h1>
         <p class="lead">Телефон спросит разрешение на уведомления. Без него случайные замеры не придут.</p>
+        ${!isStandalone() && installEvt ? '<button class="btn wide" data-act="install">Установить приложение на телефон</button>' : ''}
         <button class="btn primary wide" data-act="ob-push" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Подключаю…' : 'Включить сигналы'}</button>
         <button class="btn ghost wide" data-act="ob-finish">Позже</button>`;
     }
@@ -404,24 +418,25 @@ async function saveAnswer() {
 
 function loadBar(s) {
   if (!s.n) return '<div class="bar empty"></div>';
-  return `<div class="bar" role="img" aria-label="Открытая ладонь ${pct(s.fullShare)}, с нулями ${pct(s.zeroShare)}">
+  return `<div class="bar" role="img" aria-label="Без нулей ${pct(s.fullShare)}, с нулями ${pct(s.zeroShare)}">
     <i class="b1" style="width:${s.fullShare * 100}%"></i><i class="bx" style="width:${s.unknownShare * 100}%"></i><i class="b0" style="width:${s.zeroShare * 100}%"></i></div>
-    <div class="legend"><span><i class="dot b1"></i>111 — ${pct(s.fullShare)}</span><span><i class="dot b0"></i>с нулями — ${pct(s.zeroShare)}</span>${s.unknown ? `<span><i class="dot bx"></i>неясно — ${pct(s.unknownShare)}</span>` : ''}</div>`;
+    <div class="legend"><span><i class="dot b1"></i>без нулей — ${s.full}</span><span><i class="dot b0"></i>с нулями — ${s.zero}</span>${s.unknown ? `<span><i class="dot bx"></i>неясно — ${s.unknown}</span>` : ''}</div>`;
 }
 
-function summaryCards(s, perDay) {
-  const winH = Math.round(windowMinutes(S.settings) / 6) / 10;
+const ofActions = (n) => plural(n, 'действия', 'действий', 'действий');
+
+function summaryCards(s, period) {
   return `
     <section class="card hero">
-      <div class="label">Открытая ладонь${perDay ? ' в среднем за день' : ' сегодня'}</div>
-      <div class="big">${s.n ? '≈ ' + fmtDuration(s.openPalmMin) : '—'}</div>
-      <div class="sub">${s.n ? `по ${s.n} ${plural(s.n, 'ответу', 'ответам', 'ответам')}${s.manualOnly ? ' (записи вручную)' : ''} · окно ${String(winH).replace('.', ',')} ч` : 'Пока нет ответов'}</div>
+      <div class="label">Согласованные действия${period ? ' за период' : ' сегодня'}</div>
+      <div class="big">${s.n ? pct(s.fullShare) : '—'}</div>
+      <div class="sub">${s.n ? `${s.full} из ${s.n} ${ofActions(s.n)} без нулей (111 или 11111)` : 'Пока нет отмеченных действий'}</div>
       ${loadBar(s)}
     </section>
     <section class="grid2">
       <div class="card"><div class="label">Нагрузка</div><div class="mid">${s.load ?? '—'}<span>${s.load === null ? '' : '/100'}</span></div>
-        <div class="sub">доля замеров с нулями${s.n ? ` · ≈ ${fmtDuration(s.zeroMin)}${perDay ? ' в день' : ''}` : ''}</div></div>
-      <div class="card"><div class="label">Эустресс / дистресс</div><div class="mid">${s.n ? `${pct(s.euShare)}<span> / ${pct(1 - s.euShare)}</span>` : '—'}</div>
+        <div class="sub">${s.n ? `${s.zero} из ${s.n} ${ofActions(s.n)} с нулями` : 'доля действий с нулями'}</div></div>
+      <div class="card"><div class="label">Эустресс / дистресс</div><div class="mid">${s.n ? `${s.eustress}<span> / ${s.distress}</span>` : '—'}</div>
         <div class="sub">«хочу и согласен» / нет</div></div>
     </section>`;
 }
@@ -452,12 +467,16 @@ async function renderToday() {
 
   $view.innerHTML = `
     <header class="top"><div class="brand">${PALM}<span>DCL-832</span></div><div class="muted">${new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: S.settings.tz })}</div></header>
+    ${installNotice()}
     ${notice}
     ${pending.map((p) => `<button class="pending" data-act="go" data-h="#answer?p=${p.id}&t=${p.t}&exp=${p.exp}">
       <span><b>Сигнал ${fmtTime(p.t)} ждёт ответа</b><small>ещё ${Math.max(1, Math.ceil((p.exp - now) / 60000))} мин</small></span><span class="arrow">Ответить →</span></button>`).join('')}
     ${summaryCards(s, false)}
     <section class="card">
-      <div class="card-head"><h2>День</h2><span class="muted">${todaysPings.filter((p) => !p.test).length ? `${s.n} из ${todaysPings.filter((p) => !p.test && p.t <= now).length} сигналов` : ''}</span></div>
+      <div class="card-head"><h2>День</h2><span class="muted">${(() => {
+        const came = todaysPings.filter((p) => !p.test && p.t <= now).length;
+        return came ? `отвечено сигналов: ${todays.filter((x) => x.source === 'ping').length} из ${came}` : '';
+      })()}</span></div>
       ${rows.length ? `<ul class="timeline">${rows.map((r) => r.html).join('')}</ul>`
         : `<p class="muted">Первый сигнал придёт в случайный момент. Можно не ждать — запишите текущее действие кнопкой «+».</p>`}
     </section>
@@ -507,7 +526,6 @@ async function renderStats() {
     <div class="seg period">${[[7, '7 дней'], [30, '30 дней'], [0, 'Всё время']].map(([v, l]) => `<button class="${S.period === v ? 'on' : ''}" data-act="period" data-v="${v}">${l}</button>`).join('')}</div>
     ${summaryCards(s, true)}
     ${s.delivered ? `<p class="muted center">Сигналов: ${s.delivered} · пропущено: ${s.missed}</p>` : ''}
-    ${!s.manualOnly && answers.some((x) => x.source === 'manual') ? '<p class="muted small-note center">Цифры считаются по ответам на случайные сигналы — так они честнее. Записи вручную видны в ленте дня.</p>' : ''}
     <section class="card">
       <h2>По дням</h2>
       <div class="days ${daysRows.length > 10 ? 'dense' : ''}">${daysRows.map((d) => {
@@ -515,7 +533,7 @@ async function renderStats() {
         const [y, m, dd] = d.date.split('-');
         return `<div class="day" title="${dd}.${m}: ${d.n} ответов"><div class="col">${d.n ? `<i class="b0" style="height:${h(d.zero)}%"></i><i class="bx" style="height:${h(d.n - d.full - d.zero)}%"></i><i class="b1" style="height:${h(d.full)}%"></i>` : ''}</div><small>${daysRows.length > 10 ? (+dd % 5 === 0 ? +dd : '') : wdNames[localParts(Date.UTC(+y, m - 1, +dd, 12)).weekday]}</small></div>`;
       }).join('')}</div>
-      <div class="legend"><span><i class="dot b1"></i>открытая ладонь</span><span><i class="dot b0"></i>с нулями</span><span><i class="dot bx"></i>неясно</span></div>
+      <div class="legend"><span><i class="dot b1"></i>без нулей</span><span><i class="dot b0"></i>с нулями</span><span><i class="dot bx"></i>неясно</span></div>
     </section>
     <section class="card">
       <h2>Когда копятся нули</h2>
@@ -588,7 +606,7 @@ async function renderSettings() {
     <section class="card about"><h2>О методе</h2>
       <p><b>D</b> — желание, <b>C</b> — согласие, <b>L</b> — разрешение среды. Один — 3 знака, вдвоём — 5: D₁ C₁ D₂ C₂ L. Код с нулями — стресс в самом действии.</p>
       <p>Эустресс — действие, которое вы начали сами по желанию и с согласием (D=1, C=1). Связь кодов с аллостатической нагрузкой — гипотеза модели, а не медицинское измерение.</p>
-      <p><a href="/" target="_blank">О диагностике</a> · <a href="https://t.me/DCL832" target="_blank" rel="noopener">Канал</a> · <a href="https://t.me/Nickbv" target="_blank" rel="noopener">Консультация</a></p>
+      <p><a href="/" target="_blank">О диагностике</a> · <a href="/#books" target="_blank">Книги</a> · <a href="https://t.me/DCL832" target="_blank" rel="noopener">Канал</a> · <a href="https://t.me/Nickbv" target="_blank" rel="noopener">Консультация</a></p>
     </section>`;
 }
 
@@ -627,6 +645,9 @@ document.addEventListener('click', async (e) => {
   const o = S.ob, a = S.ans;
   switch (act) {
     case 'go': go(el.dataset.h); break;
+    case 'install':
+      if (installEvt) { installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; }
+      render(); break;
     // онбординг
     case 'ob-back': o.step--; renderOnboarding(); break;
     case 'ob-next':
@@ -640,7 +661,7 @@ document.addEventListener('click', async (e) => {
         ensureRegistered().catch(() => {});
       }
       o.step++; renderOnboarding(); break;
-    case 'ob-ppd': o.pings_per_day = Math.max(3, Math.min(10, o.pings_per_day + Number(el.dataset.d))); renderOnboarding(); break;
+    case 'ob-ppd': o.pings_per_day = Math.max(3, Math.min(20, o.pings_per_day + Number(el.dataset.d))); renderOnboarding(); break;
     case 'ob-consent': o.consent = el.dataset.v === '1'; renderOnboarding(); break;
     case 'ob-push':
       S.busy = true; renderOnboarding();
@@ -689,7 +710,7 @@ document.addEventListener('click', async (e) => {
       } catch { toast('Нет связи с сервером'); }
       render(); break;
     case 'ppd':
-      await pushSettings({ pings_per_day: Math.max(3, Math.min(10, S.settings.pings_per_day + Number(el.dataset.d))) });
+      await pushSettings({ pings_per_day: Math.max(3, Math.min(20, S.settings.pings_per_day + Number(el.dataset.d))) });
       renderSettings(); break;
     case 'export': exportCsv(); break;
     case 'wipe': wipe(); break;
@@ -748,6 +769,7 @@ if ('serviceWorker' in navigator) {
   S.onboarded = !!onboarded;
   S.customLabels = labels || [];
   if (cfg) S.cfg = cfg;
+  S.booted = true;
   render();
   try { S.cfg = await api('/api/config', { auth: false }); kvSet('cfg', S.cfg); } catch {}
   if (S.onboarded) {

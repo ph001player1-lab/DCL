@@ -37,7 +37,7 @@ function cleanSettings(body, partial) {
   if (body.tz !== undefined) { if (typeof body.tz !== 'string' || !isValidTz(body.tz)) throw new HttpError(400, 'bad_tz'); s.tz = body.tz; }
   if (body.wake_start !== undefined) { if (!int(body.wake_start, 0, 1439)) throw new HttpError(400, 'bad_wake_start'); s.wake_start = body.wake_start; }
   if (body.wake_end !== undefined) { if (!int(body.wake_end, 0, 1439)) throw new HttpError(400, 'bad_wake_end'); s.wake_end = body.wake_end; }
-  if (body.pings_per_day !== undefined) { if (!int(body.pings_per_day, 1, 12)) throw new HttpError(400, 'bad_pings_per_day'); s.pings_per_day = body.pings_per_day; }
+  if (body.pings_per_day !== undefined) { if (!int(body.pings_per_day, 1, 20)) throw new HttpError(400, 'bad_pings_per_day'); s.pings_per_day = body.pings_per_day; }
   if (body.consent !== undefined) s.consent = body.consent ? 1 : 0;
   if (!partial && s.tz === undefined) s.tz = 'Europe/Moscow';
   return s;
@@ -334,6 +334,28 @@ async function runCron(env, now = Date.now()) {
   return stats;
 }
 
+// ---------- книги (PDF лежат в Workers KV, привязка BOOKS) ----------
+
+const BOOKS = {
+  'potok-lyubvi.pdf': 'Поток любви — Н. В. Буленков.pdf',
+  'vremya-po-lyubvi.pdf': 'Время по любви — повесть.pdf',
+};
+
+async function serveBook(request, env, url) {
+  const key = url.pathname.slice('/books/'.length);
+  const name = BOOKS[key];
+  const obj = name && env.BOOKS ? await env.BOOKS.get(key, { type: 'stream', cacheTtl: 3600 }) : null;
+  if (!obj) return new Response('Не найдено', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  return new Response(request.method === 'HEAD' ? null : obj, {
+    headers: {
+      'content-type': 'application/pdf',
+      'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(name)}`,
+      'cache-control': 'public, max-age=86400',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+
 // ---------- статика (лендинг, приложение, иконки) ----------
 
 const decoded = new Map();
@@ -375,6 +397,7 @@ export default {
         return err(500, 'server_error');
       }
     }
+    if (url.pathname.startsWith('/books/')) return serveBook(request, env, url);
     return serveStatic(request, url);
   },
   async scheduled(event, env, ctx) {

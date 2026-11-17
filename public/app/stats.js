@@ -9,37 +9,29 @@ export function windowMinutes(s) {
 }
 
 /**
- * Основные цифры за период.
- * Индекс считается по ответам на случайные сигналы: только они дают несмещённую оценку доли дня.
- * Если таких ответов нет, используются ручные записи (с пометкой manualOnly).
+ * Основные цифры за период — в штуках действий, время действий не учитывается.
+ * Учитываются все отмеченные действия: ответы на сигналы и записи вручную.
  */
-export function summarize(answers, pings, settings) {
-  const fromPings = answers.filter((a) => a.source === 'ping');
-  const manualOnly = fromPings.length === 0 && answers.length > 0;
-  const base = manualOnly ? answers : fromPings;
-  const n = base.length;
+export function summarize(answers, pings) {
+  const n = answers.length;
   let full = 0, zero = 0, eu = 0;
-  for (const a of base) {
+  for (const a of answers) {
     const c = a.code || codeOf(a);
     if (isFull(c)) full++;
     else if (hasZero(c)) zero++;
     if (isEustress(a)) eu++;
   }
   const unknown = n - full - zero;
-  const days = new Set(base.map((a) => a.local_date)).size || 1;
-  const win = windowMinutes(settings);
   const delivered = pings.filter((p) => !p.test && ['sent', 'answered', 'skipped', 'expired'].includes(p.status));
   const now = Date.now();
   const missed = delivered.filter((p) => p.status === 'skipped' || p.status === 'expired' || (p.status === 'sent' && p.exp < now)).length;
   return {
-    n, full, zero, unknown, eustress: eu, distress: n - eu, manualOnly, days,
-    fullShare: n ? full / n : 0,
+    n, full, zero, unknown, eustress: eu, distress: n - eu,
+    fullShare: n ? full / n : 0,          // доля согласованных действий (111 / 11111)
     zeroShare: n ? zero / n : 0,
     unknownShare: n ? unknown / n : 0,
     euShare: n ? eu / n : 0,
-    load: n ? Math.round((zero / n) * 100) : null,          // «нагрузка» 0–100
-    openPalmMin: n ? Math.round((full / n) * win) : 0,       // минут в день с открытой ладонью (оценка)
-    zeroMin: n ? Math.round((zero / n) * win) : 0,
+    load: n ? Math.round((zero / n) * 100) : null,   // «нагрузка» 0–100: доля действий с нулями
     delivered: delivered.length, missed,
   };
 }
@@ -48,7 +40,7 @@ export function byDay(answers, dates) {
   const map = new Map(dates.map((d) => [d, { date: d, n: 0, full: 0, zero: 0 }]));
   for (const a of answers) {
     const r = map.get(a.local_date);
-    if (!r || a.source !== 'ping') continue;
+    if (!r) continue;
     r.n++;
     if (isFull(a.code)) r.full++;
     else if (hasZero(a.code)) r.zero++;
@@ -60,7 +52,6 @@ export function byDay(answers, dates) {
 export function heatmap(answers) {
   const cells = {};
   for (const a of answers) {
-    if (a.source !== 'ping') continue;
     const k = `${a.weekday}:${Math.floor(a.local_hour / 3)}`;
     const c = (cells[k] ||= { n: 0, zero: 0 });
     c.n++;
@@ -93,8 +84,7 @@ function group(list, keyFn, labelFn) {
 
 /** Мишени: где и в каком разряде копятся нули */
 export function targets(answers) {
-  const list = answers.filter((a) => a.source === 'ping');
-  const use = list.length ? list : answers;
+  const use = answers;
   const byCategory = group(use, (a) => (a.category === 'other' && a.label ? `other:${a.label}` : a.category),
     (a) => (a.category === 'other' && a.label ? a.label : CATEGORY_LABEL[a.category] || a.category));
   const byPartner = group(use.filter((a) => a.company === 'pair'), (a) => a.partner || 'other', (a) => a.partner || 'other');
@@ -108,10 +98,4 @@ export function targets(answers) {
   }
   const topCodes = [...codes.entries()].sort((x, y) => y[1] - x[1]).slice(0, 6).map(([code, n]) => ({ code, n }));
   return { n: use.length, byCategory, byPartner, bits, pairs, unknown, topCodes };
-}
-
-export function fmtDuration(min) {
-  const h = Math.floor(min / 60), m = min % 60;
-  if (!h) return `${m} мин`;
-  return m ? `${h} ч ${m} мин` : `${h} ч`;
 }
