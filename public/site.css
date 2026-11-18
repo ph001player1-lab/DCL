@@ -116,6 +116,51 @@ footer p { margin: 6px 0; }
 .nav-links a:hover { color: var(--accent); }
 .nav-links .btn { min-height: 40px; }
 
+/* первый экран */
+.hero-sub { color: var(--ink); font-weight: 600; font-size: 1.3rem; margin-bottom: 18px; }
+.shifts { list-style: none; margin: 0 0 28px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.shifts li { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; padding-left: 14px; border-left: 3px solid var(--one); }
+.shifts span { color: var(--muted); grid-column: 1 / -1; font-size: .95rem; }
+.shifts b { grid-column: 1 / -1; font-size: 1.12rem; }
+.shifts b::before { content: '→ '; color: var(--one); }
+
+/* от измерения к источнику */
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.compare .card h3 { margin-top: 0; }
+.plain { margin: 0 0 12px; padding-left: 1.1em; display: flex; flex-direction: column; gap: 8px; }
+.plain li { color: var(--muted); } .plain b { color: var(--ink); }
+.accent-card { background: var(--one-soft); border-color: transparent; }
+.accent-card p { color: var(--ink); }
+.from-to { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin-top: 16px; align-items: baseline; }
+.from-to span { font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--one); }
+.from-to b { font-size: 1.1rem; }
+.quote { margin: 28px 0 0; font-size: clamp(1.2rem, 2.4vw, 1.5rem); font-weight: 700; letter-spacing: -.01em; max-width: 34em; border-left: 4px solid var(--one); padding-left: 16px; }
+
+/* коды-маркеры */
+.markers-title { margin: 36px 0 14px; font-size: 1.3rem; }
+.markers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.marker { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 6px; }
+.marker .t-code { font: 800 1.5rem ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .1em; }
+.marker .t-code .z { color: var(--zero-ink); } .marker .t-code .o { color: var(--one); }
+.marker b { font-size: 1.08rem; }
+.marker p { margin: 0; color: var(--muted); }
+.marker .ex { margin-top: 6px; font-size: .92rem; background: var(--surface-2); color: var(--ink); padding: 10px 12px; border-radius: 12px; }
+.caveat { margin: 16px 0 0; border-left: 4px solid var(--zero); padding: 4px 0 4px 16px; max-width: 46em; }
+.scale { margin-top: 20px; }
+.scale h3 { margin-top: 0; }
+.scale-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.scale-list li { background: var(--surface-2); border-radius: 14px; padding: 14px; }
+.scale-list b { display: block; }
+.scale-list span { color: var(--muted); font-size: .95rem; }
+
+/* эксперимент */
+.cycle { counter-reset: c; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.cycle li { counter-increment: c; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; position: relative; }
+.cycle li::before { content: counter(c); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; margin-bottom: 8px; }
+.cycle b { display: block; } .cycle span { color: var(--muted); font-size: .92rem; }
+.example { margin-top: 16px; }
+.example b { color: var(--ink); }
+
 /* мишени */
 .targets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .target-card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 10px; }
@@ -125,6 +170,7 @@ footer p { margin: 6px 0; }
 .target-card .t-code .z { color: var(--zero-ink); } .target-card .t-code .o { color: var(--one); }
 .target-card p { margin: 0; color: var(--muted); }
 .target-card .todo { margin-top: auto; background: var(--surface-2); color: var(--ink); padding: 12px 14px; border-radius: 12px; font-size: .95rem; }
+.target-card .todo ul { margin: 4px 0 0; padding-left: 1.1em; }
 .target-card .todo b { display: block; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--one); margin-bottom: 2px; }
 
 /* наука */
@@ -169,7 +215,10 @@ footer p { margin: 6px 0; }
 .cta-box .btn { background: var(--accent-ink); color: var(--accent); border-color: transparent; }
 
 @media (max-width: 860px) {
-  .targets, .science, .pros, .author, .who { grid-template-columns: 1fr; }
+  .targets, .science, .pros, .author, .who, .compare, .markers, .scale-list { grid-template-columns: 1fr; }
+  .cycle { grid-template-columns: 1fr; }
+  .cycle li { display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; }
+  .cycle li::before { margin: 0; grid-row: span 2; }
   .author img { max-width: 280px; }
   .nav-links a:not(.btn) { display: none; }
 }

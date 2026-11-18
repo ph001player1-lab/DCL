@@ -234,7 +234,7 @@ function renderOnboarding() {
         <li><span class="bit">C</span><div><b>Согласен?</b><small>Разум «за», понимая последствия.</small></div></li>
         <li><span class="bit">L</span><div><b>Можно?</b><small>Правила, место, договорённости.</small></div></li>
       </ul>
-      <p class="muted">Ноль в коде — это стресс в самом действии. Код без нулей — <b>111</b> (или <b>11111</b> вдвоём) — это согласованное действие.</p>
+      <p class="muted">Ноль в коде — возможный источник стресса. Код без нулей — <b>111</b> (или <b>11111</b> вдвоём) — это согласованное действие.</p>
       <button class="btn primary wide" data-act="ob-next">Начать</button>`;
   } else if (o.step === 2) {
     html = `
