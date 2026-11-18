@@ -17,7 +17,9 @@ const received = [];
 
 const { vapidPublicKey } = await (await fetch(`${BASE}/api/config`)).json();
 
+const PUSH_PATH = '/push/' + randomBytes(6).toString('hex'); // уникальный адрес этого прогона
 const server = http.createServer((req, res) => {
+  if (req.url !== PUSH_PATH) { req.resume(); res.writeHead(201).end(); return; } // хвосты прошлых прогонов
   const chunks = [];
   req.on('data', (c) => chunks.push(c));
   req.on('end', () => {
@@ -43,6 +45,10 @@ const api = async (path, opts = {}, token) => {
 };
 const sql = (q) => JSON.parse(execFileSync('npx', ['wrangler', 'd1', 'execute', 'dcl832', '--local', '--json', '--command', q], { encoding: 'utf8' }))[0].results;
 
+// 0. Убрать хвосты прерванных прогонов (устройства с подпиской на этот поддельный push-сервис)
+sql("DELETE FROM pings WHERE user_id IN (SELECT id FROM users WHERE push_endpoint LIKE 'http://127.0.0.1:9999/%')");
+sql("DELETE FROM users WHERE push_endpoint LIKE 'http://127.0.0.1:9999/%'");
+
 // 1. Регистрация
 let r = await api('/api/register', { method: 'POST', body: JSON.stringify({ tz: 'Europe/Moscow', wake_start: 0, wake_end: 1439, pings_per_day: 8, consent: true }) });
 assert.equal(r.status, 201);
@@ -53,7 +59,7 @@ console.log('registered', userId);
 assert.equal((await api('/api/me', {}, 'bad.tokentokentokentokentoken')).status, 401);
 
 // 2. Подписка -> планирование сегодняшних сигналов
-r = await api('/api/subscribe', { method: 'POST', body: JSON.stringify({ endpoint: 'http://127.0.0.1:9999/push/1', keys: { p256dh: ua.getPublicKey('base64url'), auth } }) }, token);
+r = await api('/api/subscribe', { method: 'POST', body: JSON.stringify({ endpoint: `http://127.0.0.1:9999${PUSH_PATH}`, keys: { p256dh: ua.getPublicKey('base64url'), auth } }) }, token);
 assert.equal(r.status, 200);
 assert.equal(r.body.has_push, true);
 let pings = sql(`SELECT * FROM pings WHERE user_id='${userId}' AND status='scheduled' ORDER BY scheduled_at`);

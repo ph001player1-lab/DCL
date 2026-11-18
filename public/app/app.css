@@ -63,6 +63,8 @@ h2 { font-size: 1.05rem; }
 }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .btn.primary:disabled { opacity: .35; cursor: default; }
+.btn.primary.incomplete { opacity: .45; }
+.missing { margin: 0; text-align: center; color: var(--muted); font-size: .9rem; }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
 .btn.danger { color: var(--zero-ink); }
 .btn.wide { width: 100%; }

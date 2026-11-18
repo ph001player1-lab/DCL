@@ -311,12 +311,20 @@ function newAnswerState(q) {
     category: null, label: null, company: 'alone', partner: null, d1: null, c1: null, l: null, l_kind: null, d2: null, c2: null, adding: false };
 }
 
-function answerComplete(a) {
-  if (!a.category || a.d1 === null || a.c1 === null || a.l === null) return false;
-  if (a.l === 0 && !a.l_kind) return false; // «нельзя» требует уточнения
-  if (a.company === 'pair' && (!a.partner || a.d2 === null || a.c2 === null)) return false;
-  return true;
+/** Что ещё не выбрано на экране ответа: [подпись, id блока для прокрутки] */
+function answerMissing(a) {
+  const m = [];
+  if (!a.category) m.push(['что вы делаете', 'blk-what']);
+  if (a.company === 'pair' && !a.partner) m.push(['с кем', 'blk-who']);
+  if (a.d1 === null) m.push(['«Я хочу?»', 'blk-qs']);
+  if (a.c1 === null) m.push(['«Я согласен?»', 'blk-qs']);
+  if (a.company === 'pair' && a.d2 === null) m.push(['«Второй хочет?»', 'blk-qs']);
+  if (a.company === 'pair' && a.c2 === null) m.push(['«Второй согласен?»', 'blk-qs']);
+  if (a.l === null) m.push(['«Можно?»', 'blk-qs']);
+  if (a.l === 0 && !a.l_kind) m.push(['что нарушено', 'blk-qs']); // «нельзя» требует уточнения
+  return m;
 }
+const answerComplete = (a) => answerMissing(a).length === 0;
 
 async function renderAnswer(q) {
   const key = q.toString() || 'new';
@@ -371,15 +379,15 @@ async function renderAnswer(q) {
   $view.innerHTML = `
     <div class="answer">
       <div class="ans-top">${header}<button class="x" data-act="ans-close" aria-label="Закрыть">✕</button></div>
-      <h2 class="q-title">${a.source === 'ping' ? `Что вы делали в ${fmtTime(a.t)}?` : 'Что вы сейчас делаете?'}</h2>
+      <h2 class="q-title" id="blk-what">${a.source === 'ping' ? `Что вы делали в ${fmtTime(a.t)}?` : 'Что вы сейчас делаете?'}</h2>
       <div class="chips">${chips(CATEGORIES, 'category', a.category === 'other' && a.label ? null : a.category)}${customChips}
         <button class="chip add ${a.adding ? 'on' : ''}" data-act="add-label">+ своё</button></div>
       ${a.adding ? `<form class="add-row" data-act="label-form"><input id="label-in" maxlength="40" placeholder="Например: готовлю ужин" autocomplete="off"><button class="btn primary">OK</button></form>` : ''}
-      <h3 class="q-sub">С кем</h3>
+      <h3 class="q-sub" id="blk-who">С кем</h3>
       <div class="seg">${Object.entries(COMPANY_LABEL).map(([k, l]) => `<button class="${a.company === k ? 'on' : ''}" data-act="set" data-f="company" data-v="${k}">${l}</button>`).join('')}</div>
       ${a.company === 'pair' ? `<div class="chips small">${chips(PARTNERS, 'partner', a.partner)}</div>` : ''}
       ${a.company === 'group' ? '<p class="muted small-note">В группе оцените только себя.</p>' : ''}
-      <div class="qs">
+      <div class="qs" id="blk-qs">
         ${yn('d1', 'Я хочу?', 'желание, чувства')}
         ${yn('c1', 'Я согласен?', 'разум «за»')}
         ${a.company === 'pair' ? yn('d2', 'Второй хочет?', '«?» — не знаю', true) + yn('c2', 'Второй согласен?', '«?» — не знаю', true) : ''}
@@ -388,7 +396,8 @@ async function renderAnswer(q) {
           `<button class="chip ${a.l_kind === k ? 'on' : ''}" data-act="set" data-f="l_kind" data-v="${k}">${label}</button>`).join('')}</div></div>` : ''}
       </div>
       ${preview}
-      <button class="btn primary wide big" data-act="save" ${code ? '' : 'disabled'}>Готово</button>
+      ${code ? '' : `<p class="missing">Осталось выбрать: ${answerMissing(a).map(([t]) => t).join(', ')}</p>`}
+      <button class="btn primary wide big ${code ? '' : 'incomplete'}" data-act="save">Готово</button>
       ${a.source === 'ping' ? '<button class="btn ghost wide" data-act="skip">Пропустить сигнал</button>' : ''}
     </div>`;
   if (a.adding) document.getElementById('label-in')?.focus();
@@ -396,7 +405,19 @@ async function renderAnswer(q) {
 
 async function saveAnswer() {
   const a = S.ans;
-  if (!answerComplete(a)) return;
+  const typed = a.adding && document.getElementById('label-in')?.value.trim().slice(0, 40);
+  if (typed) { // ввели своё действие, но не нажали OK
+    S.customLabels = [typed, ...S.customLabels.filter((x) => x !== typed)].slice(0, 8);
+    kvSet('customLabels', S.customLabels);
+    Object.assign(a, { category: 'other', label: typed, adding: false });
+  }
+  const missing = answerMissing(a);
+  if (missing.length) {
+    toast(`Осталось выбрать: ${missing.map(([t]) => t).join(', ')}`);
+    renderAnswer(route().q);
+    document.getElementById(missing[0][1])?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const now = Date.now();
   const lp = localParts(a.t);
   const rec = {
@@ -657,7 +678,7 @@ document.addEventListener('click', async (e) => {
   const act = el.dataset.act;
   const o = S.ob, a = S.ans;
   switch (act) {
-    case 'go': go(el.dataset.h); break;
+    case 'go': if (el.dataset.h === '#new') S.ans = null; go(el.dataset.h); break;
     case 'install':
       if (installEvt) { installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; }
       render(); break;

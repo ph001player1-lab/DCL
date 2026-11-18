@@ -153,6 +153,21 @@ footer p { margin: 6px 0; }
 .scale-list b { display: block; }
 .scale-list span { color: var(--muted); font-size: .95rem; }
 
+/* отношения */
+.epigraph { margin: 0 0 36px; max-width: 46em; padding: 4px 0 4px 24px; border-left: 4px solid var(--one); }
+.epi-text { margin: 0; font-size: clamp(1.15rem, 2.2vw, 1.45rem); line-height: 1.5; font-style: italic; color: var(--ink); }
+.epigraph figcaption { margin-top: 10px; color: var(--muted); font-weight: 600; }
+.pair-key { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 20px; margin-bottom: 18px; }
+.pair-key .t-code { font: 800 1.3rem ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .06em; white-space: nowrap; }
+.pair-key .t-code .o { color: var(--one); }
+.pair-key p { margin: 0; flex: 1; min-width: 16em; color: var(--muted); }
+.pcodes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.pcode { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.pcode.full { background: var(--one-soft); border-color: transparent; }
+.pcode .t-code { font: 800 1.25rem ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .08em; }
+.pcode .t-code .z { color: var(--zero-ink); } .pcode .t-code .o { color: var(--one); }
+.pcode p { margin: 0; color: var(--muted); font-size: .95rem; }
+
 /* эксперимент */
 .cycle { counter-reset: c; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
 .cycle li { counter-increment: c; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; position: relative; }
@@ -215,7 +230,7 @@ footer p { margin: 6px 0; }
 .cta-box .btn { background: var(--accent-ink); color: var(--accent); border-color: transparent; }
 
 @media (max-width: 860px) {
-  .targets, .science, .pros, .author, .who, .compare, .markers, .scale-list { grid-template-columns: 1fr; }
+  .targets, .science, .pros, .author, .who, .compare, .markers, .scale-list, .pcodes { grid-template-columns: 1fr; }
   .cycle { grid-template-columns: 1fr; }
   .cycle li { display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; }
   .cycle li::before { margin: 0; grid-row: span 2; }
