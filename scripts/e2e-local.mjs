@@ -89,6 +89,11 @@ assert.equal(sql(`SELECT code FROM answers WHERE id='${answer.id}'`)[0].code, '0
 assert.equal(sql(`SELECT status FROM pings WHERE id='${ping.id}'`)[0].status, 'answered');
 r = await api('/api/answers', { method: 'POST', body: JSON.stringify({ answers: [{ ...answer, d1: 5 }] }) }, token);
 assert.equal(r.status, 400);
+const answerL = { ...answer, id: 'ansL_' + randomBytes(6).toString('hex'), ping_id: null, source: 'manual', company: 'alone', l: 0, l_kind: 'rules' };
+r = await api('/api/answers', { method: 'POST', body: JSON.stringify({ answers: [answerL] }) }, token);
+assert.equal(r.status, 200);
+const rowL = sql(`SELECT code, l_kind FROM answers WHERE id='${answerL.id}'`)[0];
+assert.equal(rowL.code, '010'); assert.equal(rowL.l_kind, 'rules');
 
 // 6b. Отметка присутствия
 r = await api('/api/heartbeat', { method: 'POST', body: JSON.stringify({ platform: 'android', standalone: 1 }) }, token);
@@ -106,11 +111,12 @@ const adminToken = execFileSync('sh', ['-c', "grep ADMIN_TOKEN .dev.vars | cut -
 assert.equal((await api('/api/admin/summary', {}, 'wrong-token-wrong-token')).status, 401);
 r = await api('/api/admin/summary', {}, adminToken);
 assert.ok(r.body.answers.n >= 1, 'summary answers');
-assert.ok(r.body.main_targets.C >= 1, 'main target C for 01x11');
+assert.ok(r.body.zero_codes.some((c) => c.code === '01x11'), 'zero code listed');
+assert.ok(r.body.zero_bits.d0 >= 1, 'zero bits');
 assert.ok(r.body.platforms.some((p) => p.platform === 'android'), 'platform android');
 r = await api('/api/admin/devices', {}, adminToken);
 const dev = r.body.devices.find((d) => userId.startsWith(d.id));
-assert.ok(dev, 'device listed'); assert.equal(dev.standalone, 1); assert.equal(dev.answers, 1);
+assert.ok(dev, 'device listed'); assert.equal(dev.standalone, 1); assert.equal(dev.answers, 2);
 r = await api('/api/admin/answers.csv', {}, adminToken);
 assert.ok(r.body.includes("'01x11"));
 

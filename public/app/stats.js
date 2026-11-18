@@ -1,5 +1,5 @@
 // Расчёты для экранов «Сегодня» и «Анализ». Чистые функции, без DOM.
-import { isFull, hasZero, isEustress, zeroBits, CATEGORY_LABEL, codeOf, targetOf, TARGET_ORDER } from './dcl.js';
+import { isFull, hasZero, isEustress, zeroBits, CATEGORY_LABEL, codeOf } from './dcl.js';
 
 /** Длина окна бодрствования в минутах */
 export function windowMinutes(s) {
@@ -36,14 +36,27 @@ export function summarize(answers, pings) {
   };
 }
 
-/** Главная мишень: сколько действий приходится на каждую (C, L, D, P) */
-export function targetSummary(answers) {
-  const counts = { C: 0, L: 0, D: 0, P: 0 };
-  for (const a of answers) { const t = targetOf(a); if (t) counts[t]++; }
-  const total = TARGET_ORDER.reduce((n, k) => n + counts[k], 0);
-  let main = null;
-  for (const k of TARGET_ORDER) if (counts[k] && (!main || counts[k] > counts[main])) main = k;
-  return { counts, total, main };
+/**
+ * Коды с нулями: сколько раз и в скольких разных днях встречались.
+ * «Регулярно» — код был в двух и более разных днях, иначе «разово». Без интерпретаций.
+ */
+export function zeroCodes(answers) {
+  const m = new Map();
+  for (const a of answers) {
+    if (!hasZero(a.code)) continue;
+    const r = m.get(a.code) || { code: a.code, n: 0, days: new Set() };
+    r.n++; r.days.add(a.local_date);
+    m.set(a.code, r);
+  }
+  return [...m.values()].map((r) => ({ code: r.code, n: r.n, days: r.days.size, regular: r.days.size >= 2 }))
+    .sort((x, y) => y.days - x.days || y.n - x.n);
+}
+
+/** Уточнения «нельзя»: закон / правила / нормы / не указано */
+export function lKinds(answers) {
+  const r = { law: 0, rules: 0, norms: 0, none: 0 };
+  for (const a of answers) if (a.l === 0) r[a.l_kind || 'none']++;
+  return r;
 }
 
 /** Три оси: сколько раз ответ «да» по D, C, L */

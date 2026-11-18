@@ -18,6 +18,10 @@ export const PARTNER_WITH = {
 
 export const COMPANY_LABEL = { alone: 'Один', pair: 'Вдвоём', group: '3 и больше' };
 
+// Уточнение «нельзя» (L = 0): что именно нарушено
+export const L_KINDS = [['law', 'Закон'], ['rules', 'Правила места или работы'], ['norms', 'Нормы круга']];
+export const L_KIND_LABEL = Object.fromEntries(L_KINDS);
+
 // Порядок разрядов в коде: одиночное D C L, парное D1 C1 D2 C2 L (как в инструкции)
 export function codeOf(a) {
   if (a.company === 'pair') return `${a.d1}${a.c1}${a.d2}${a.c2}${a.l}`;
@@ -54,7 +58,7 @@ const other = (v, yes, no) => (String(v) === '1' ? yes : String(v) === '0' ? no 
 /** Расшифровка кода человеческими словами */
 export function decode(a) {
   const me = `${a.d1 ? 'Хочу' : 'Не хочу'}, ${a.c1 ? 'согласен' : 'не согласен'}`;
-  const law = a.l ? 'можно' : 'нельзя';
+  const law = a.l ? 'можно' : a.l_kind ? `нельзя (${L_KIND_LABEL[a.l_kind].toLowerCase()})` : 'нельзя';
   if (a.company === 'pair') {
     return `${me} · второй: ${other(a.d2, 'хочет', 'не хочет')}, ${other(a.c2, 'согласен', 'не согласен')} · ${law}`;
   }
@@ -72,38 +76,4 @@ export function decodeCode(code) {
 
 export function formatCode(code) {
   return code.length === 5 ? `${code.slice(0, 2)} ${code.slice(2, 4)} ${code[4]}` : code;
-}
-
-// ---------- мишени: где источник стресса ----------
-// Каждое действие с нулями относится к одной мишени (порядок проверки важен).
-export const TARGETS = {
-  C: {
-    name: 'Деньги и «надо»',
-    desc: 'Не хочу, но согласен (код 011): действие держится на одном согласии — чаще всего ради денег.',
-    advice: 'Мишень экономическая: доход, условия работы, цена вашего времени.',
-  },
-  L: {
-    name: 'Окружение',
-    desc: '«Нельзя» (L = 0): действие идёт вразрез с правилами среды.',
-    advice: 'Возможно, это не ваше окружение: стоит менять сообщество, место или договорённости.',
-  },
-  D: {
-    name: 'Желание',
-    desc: 'Нет желания или оно спорит с разумом (коды 001 и 101).',
-    advice: 'Поможет работа с благополучием (well-being) и job crafting: понять, чего вы хотите, и перестроить дела под это.',
-  },
-  P: {
-    name: 'Другой участник',
-    desc: 'Вы «за», а второй участник не хочет или не согласен.',
-    advice: 'Спросите: «Хочешь?» — и дайте право сказать «нет».',
-  },
-};
-export const TARGET_ORDER = ['C', 'L', 'D', 'P'];
-
-export function targetOf(a) {
-  if (a.l === 0) return 'L';
-  if (a.d1 === 0 && a.c1 === 1) return 'C';
-  if (a.d1 === 0 || a.c1 === 0) return 'D';
-  if (a.company === 'pair' && (String(a.d2) === '0' || String(a.c2) === '0')) return 'P';
-  return null;
 }

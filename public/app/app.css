@@ -241,17 +241,21 @@ h2 { font-size: 1.05rem; }
 .stack.empty { background: var(--surface-2); border-radius: 4px; }
 .meter { height: 10px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: 4px; }
-.target .t-name { font-size: 1.5rem; font-weight: 800; letter-spacing: -.01em; }
-.target .t-count { color: var(--muted); }
-.target .t-count b { color: var(--ink); font-size: 1.1rem; }
-.target p { margin: 0; }
 .green { color: var(--one); }
-.t-others, .axes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.t-others li { display: grid; grid-template-columns: minmax(0, 1.3fr) 1fr 2.2em; gap: 10px; align-items: center; font-size: .92rem; }
-.t-others b { text-align: right; font-variant-numeric: tabular-nums; }
+.axes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .axes li { display: grid; grid-template-columns: 34px 5.5em 1fr auto; gap: 10px; align-items: center; }
 .axes .name { font-size: .95rem; }
 .axes b { font-size: .9rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zcodes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.zcodes li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.zc-text { display: flex; flex-direction: column; min-width: 0; }
+.zc-text b { font-size: .92rem; font-weight: 600; }
+.zc-text small { color: var(--muted); }
+.badge { font-size: .78rem; font-weight: 700; padding: 4px 10px; border-radius: 99px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.badge.reg { background: var(--zero-soft); color: var(--zero-ink); }
+.lk { margin: 4px 0 0; color: var(--muted); }
+.q-sub-row { display: flex; flex-direction: column; gap: 8px; padding: 0 0 12px; }
+.q-sub-row > span { font-size: .85rem; color: var(--muted); font-weight: 600; }
 .hint { margin: 0; background: var(--surface-2); padding: 10px 12px; border-radius: 12px; font-size: .92rem; }
 .codes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .codes li { display: flex; align-items: center; gap: 10px; font-size: .9rem; }

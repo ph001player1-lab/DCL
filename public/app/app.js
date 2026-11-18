@@ -1,9 +1,9 @@
 // DCL-832 — приложение. Без фреймворков: экраны рисуются строками, события — через data-act.
 import { CATEGORIES, CATEGORY_LABEL, PARTNERS, PARTNER_LABEL, PARTNER_WITH, COMPANY_LABEL, codeOf, isFull, hasZero, decode,
-  decodeCode, formatCode, BIT_NAMES, BIT_SHORT, zeroBits, TARGETS, TARGET_ORDER } from './dcl.js';
+  decodeCode, formatCode, BIT_NAMES, BIT_SHORT, zeroBits, L_KINDS, L_KIND_LABEL } from './dcl.js';
 import { kvGet, kvSet, put, get, all, since, putMany, clear } from './store.js';
 import { api, getCreds, setCreds, ApiError } from './api.js';
-import { summarize, targets, targetSummary, axes, dayParts, daysList, DAY_PARTS } from './stats.js';
+import { summarize, targets, zeroCodes, lKinds, axes, dayParts, daysList, DAY_PARTS } from './stats.js';
 
 const $view = document.getElementById('view');
 const $tabs = document.getElementById('tabs');
@@ -308,11 +308,12 @@ function newAnswerState(q) {
   const t = Number(q.get('t')) || Date.now();
   const exp = Number(q.get('exp')) || (t + S.cfg.answerWindowMin * 60_000);
   return { pingId: test ? null : pingId, test, t, exp, source: pingId && !test ? 'ping' : 'manual',
-    category: null, label: null, company: 'alone', partner: null, d1: null, c1: null, l: null, d2: null, c2: null, adding: false };
+    category: null, label: null, company: 'alone', partner: null, d1: null, c1: null, l: null, l_kind: null, d2: null, c2: null, adding: false };
 }
 
 function answerComplete(a) {
   if (!a.category || a.d1 === null || a.c1 === null || a.l === null) return false;
+  if (a.l === 0 && !a.l_kind) return false; // «нельзя» требует уточнения
   if (a.company === 'pair' && (!a.partner || a.d2 === null || a.c2 === null)) return false;
   return true;
 }
@@ -382,7 +383,9 @@ async function renderAnswer(q) {
         ${yn('d1', 'Я хочу?', 'желание, чувства')}
         ${yn('c1', 'Я согласен?', 'разум «за»')}
         ${a.company === 'pair' ? yn('d2', 'Второй хочет?', '«?» — не знаю', true) + yn('c2', 'Второй согласен?', '«?» — не знаю', true) : ''}
-        ${yn('l', 'Можно?', 'правила, место, договорённости')}
+        ${yn('l', 'Можно?', 'закон, правила, нормы')}
+        ${a.l === 0 ? `<div class="q-sub-row"><span>Что нарушено?</span><div class="chips small">${L_KINDS.map(([k, label]) =>
+          `<button class="chip ${a.l_kind === k ? 'on' : ''}" data-act="set" data-f="l_kind" data-v="${k}">${label}</button>`).join('')}</div></div>` : ''}
       </div>
       ${preview}
       <button class="btn primary wide big" data-act="save" ${code ? '' : 'disabled'}>Готово</button>
@@ -401,7 +404,7 @@ async function saveAnswer() {
     local_date: lp.date, local_hour: lp.hour, weekday: lp.weekday,
     category: a.category, label: a.category === 'other' ? a.label : null,
     company: a.company, partner: a.company === 'pair' ? a.partner : null,
-    d1: a.d1, c1: a.c1, l: a.l,
+    d1: a.d1, c1: a.c1, l: a.l, l_kind: a.l === 0 ? a.l_kind : null,
     d2: a.company === 'pair' ? String(a.d2) : null, c2: a.company === 'pair' ? String(a.c2) : null,
     synced: 0,
   };
@@ -513,26 +516,22 @@ async function renderStats() {
   const answers = dates ? answersAll.filter((a) => a.local_date >= dates[0]) : answersAll;
   const s = summarize(answers, pings);
   const tg = targets(answers);
-  const ts = targetSummary(answers);
   const ax = axes(answers);
   const parts = dayParts(answers);
   const dayRows = daysList(answers);
   const n = s.n;
 
-  const mainCard = !n ? `<section class="card"><h2>Главная мишень</h2><p class="muted">Появится после первых ответов.</p></section>`
-    : !ts.total ? `<section class="card target"><div class="label">Главная мишень</div><div class="t-name green">Нулей нет</div><p>Все отмеченные действия согласованы: хочу, согласен, можно.</p></section>`
-    : (() => {
-      const t = TARGETS[ts.main];
-      const others = TARGET_ORDER.filter((k) => ts.counts[k] && k !== ts.main);
-      return `<section class="card target">
-        <div class="label">Главная мишень</div>
-        <div class="t-name">${t.name}</div>
-        <div class="t-count"><b>${ts.counts[ts.main]}</b> из ${n} ${ofActions(n)}</div>
-        <p>${t.desc}</p>
-        <p class="hint">${t.advice}</p>
-        ${others.length ? `<ul class="t-others">${others.map((k) => `<li><span>${TARGETS[k].name}</span>${meter(ts.counts[k], n, 'b0', `${TARGETS[k].name}: ${ts.counts[k]} из ${n}`)}<b>${ts.counts[k]}</b></li>`).join('')}</ul>` : ''}
-      </section>`;
-    })();
+  const zc = zeroCodes(answers);
+  const lk = lKinds(answers);
+  const codesCard = !n ? '' : `<section class="card">
+    <h2>Коды с нулями: разово или регулярно</h2>
+    <p class="muted small-note">«Регулярно» — код встречался в двух и более разных днях за период.</p>
+    ${zc.length ? `<ul class="zcodes">${zc.map((c) => `<li>
+      <span class="code zero">${formatCode(c.code)}</span>
+      <span class="zc-text"><b>${esc(decodeCode(c.code))}</b><small>${c.n} ${plural(c.n, 'раз', 'раза', 'раз')} · в ${c.days} ${plural(c.days, 'дне', 'днях', 'днях')}</small></span>
+      <span class="badge ${c.regular ? 'reg' : ''}">${c.regular ? 'регулярно' : 'разово'}</span></li>`).join('')}</ul>`
+      : '<p>Кодов с нулями нет: все отмеченные действия — 111 или 11111.</p>'}
+  </section>`;
 
   const axisRows = [['d1', 'D', 'хочу'], ['c1', 'C', 'согласен'], ['l', 'L', 'можно']].map(([k, letter, name]) => `
     <li><span class="bit">${letter}</span><span class="name">${name}</span>${meter(ax[k], n, 'b1', `${name}: «да» в ${ax[k]} из ${n}`)}<b>${ax[k]} из ${n}</b></li>`).join('');
@@ -561,14 +560,15 @@ async function renderStats() {
     <div class="seg period">${[[7, '7 дней'], [30, '30 дней'], [0, 'Всё время']].map(([v, l]) => `<button class="${S.period === v ? 'on' : ''}" data-act="period" data-v="${v}">${l}</button>`).join('')}</div>
     ${summaryCards(s, true)}
     ${s.delivered ? `<p class="muted center">Сигналов: ${s.delivered} · пропущено: ${s.missed}</p>` : ''}
-    ${mainCard}
-    ${n ? `<section class="card"><h2>Три оси</h2><p class="muted small-note">Сколько раз вы ответили «да» на каждый вопрос.</p><ul class="axes">${axisRows}</ul></section>` : ''}
+    ${codesCard}
+    ${n ? `<section class="card"><h2>Три оси</h2><p class="muted small-note">Сколько раз вы ответили «да» на каждый вопрос.</p><ul class="axes">${axisRows}</ul>
+      ${ax.l < n ? `<p class="small-note lk">«Нельзя» (${n - ax.l}): закон — ${lk.law}, правила места или работы — ${lk.rules}, нормы круга — ${lk.norms}${lk.none ? `, не уточнено — ${lk.none}` : ''}</p>` : ''}</section>` : ''}
     <section class="card">
       <h2>Где нули</h2>
       ${catRows ? `<ul class="rows">${catRows}</ul>` : '<p class="muted">Появятся после первых ответов.</p>'}
     </section>
     ${tg.pairs ? `<section class="card"><h2>С кем</h2><ul class="rows">${partRows}</ul>
-      ${tg.unknown ? `<p class="hint">В ${tg.unknown} из ${tg.pairs} совместных действий вы не знали, хочет ли второй. Можно просто спросить: «Хочешь?»</p>` : ''}</section>` : ''}
+      ${tg.unknown ? `<p class="muted small-note">В ${tg.unknown} из ${tg.pairs} совместных действий ответ о втором участнике — «не знаю».</p>` : ''}</section>` : ''}
     ${partRowsTime ? `<section class="card"><h2>Когда нули</h2><ul class="rows">${partRowsTime}</ul>
       ${n < 10 ? '<p class="muted small-note">Картина станет надёжнее после 10–15 ответов.</p>' : ''}</section>` : ''}
     ${dayList ? `<section class="card"><h2>По дням</h2><ul class="rows">${dayList}</ul>
@@ -693,6 +693,7 @@ document.addEventListener('click', async (e) => {
       a[f] = v;
       if (f === 'category') { a.label = null; a.adding = false; }
       if (f === 'company' && v !== 'pair') { a.partner = null; a.d2 = null; a.c2 = null; }
+      if (f === 'l' && v === 1) a.l_kind = null;
       renderAnswer(route().q); break;
     }
     case 'label': a.category = 'other'; a.label = el.dataset.v; a.adding = false; renderAnswer(route().q); break;

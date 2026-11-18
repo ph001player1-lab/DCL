@@ -9,6 +9,7 @@ const ANSWER_WINDOW_MIN = 30;           // сколько минут сигна�
 const SEND_GRACE_MS = 10 * 60_000;             // опоздавший больше чем на 10 мин сигнал не отправляем
 const CATEGORIES = ['work', 'study', 'food', 'road', 'home', 'care', 'sport', 'rest', 'screen', 'talk', 'other'];
 const PARTNERS = ['partner', 'child', 'parent', 'colleague', 'friend', 'other'];
+const L_KINDS = ['law', 'rules', 'norms']; // уточнение «нельзя»: закон, правила места или работы, нормы круга
 
 // ---------- утилиты ----------
 
@@ -102,7 +103,8 @@ function validateAnswer(a, now) {
     d2 = String(a.d2); c2 = String(a.c2);
   }
   const code = a.company === 'pair' ? `${a.d1}${a.c1}${d2}${c2}${a.l}` : `${a.d1}${a.c1}${a.l}`;
-  return { ...a, label, partner, d2, c2, code };
+  const l_kind = a.l === 0 && L_KINDS.includes(a.l_kind) ? a.l_kind : null; // старые версии приложения не присылают уточнение
+  return { ...a, label, partner, d2, c2, code, l_kind };
 }
 
 // ---------- API ----------
@@ -220,13 +222,13 @@ async function handleApi(request, env, url) {
     const stmts = [];
     for (const a of rows) {
       stmts.push(env.DB.prepare(`INSERT INTO answers (id, user_id, ping_id, source, t, answered_at, local_date, local_hour, weekday,
-          category, label, company, partner, d1, c1, l, d2, c2, code, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          category, label, company, partner, d1, c1, l, d2, c2, code, l_kind, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET category = excluded.category, label = excluded.label, company = excluded.company,
           partner = excluded.partner, d1 = excluded.d1, c1 = excluded.c1, l = excluded.l, d2 = excluded.d2, c2 = excluded.c2,
-          code = excluded.code WHERE answers.user_id = excluded.user_id`)
+          code = excluded.code, l_kind = excluded.l_kind WHERE answers.user_id = excluded.user_id`)
         .bind(a.id, user.id, a.ping_id ?? null, a.source, a.t, a.answered_at, a.local_date, a.local_hour, a.weekday,
-          a.category, a.label, a.company, a.partner, a.d1, a.c1, a.l, a.d2, a.c2, a.code, now));
+          a.category, a.label, a.company, a.partner, a.d1, a.c1, a.l, a.d2, a.c2, a.code, a.l_kind, now));
       if (a.ping_id && a.source === 'ping') {
         stmts.push(env.DB.prepare("UPDATE pings SET status = 'answered', closed_at = ? WHERE id = ? AND user_id = ? AND status IN ('sent', 'expired')")
           .bind(now, a.ping_id, user.id));
@@ -253,9 +255,6 @@ async function handleAdmin(request, env, path) {
 
   if (path === '/api/admin/summary') {
     const now = Date.now(), DAY = 86400_000, since30 = now - 30 * DAY;
-    // мишень действия — так же, как в приложении (public/app/dcl.js: targetOf)
-    const TARGET = `CASE WHEN l = 0 THEN 'L' WHEN d1 = 0 AND c1 = 1 THEN 'C' WHEN d1 = 0 OR c1 = 0 THEN 'D'
-      WHEN company = 'pair' AND (d2 = '0' OR c2 = '0') THEN 'P' ELSE 'full' END`;
     const MSK = 10800; // даты по Москве
     const r = await DB.batch([
       DB.prepare(`SELECT COUNT(*) AS total, SUM(push_endpoint IS NOT NULL) AS with_push, SUM(consent) AS consented,
@@ -271,8 +270,11 @@ async function handleAdmin(request, env, path) {
       DB.prepare(`SELECT status, COUNT(*) AS n FROM pings WHERE scheduled_at > ? AND scheduled_at <= ? GROUP BY status`).bind(since30, now),
       DB.prepare(`SELECT COUNT(*) AS n, SUM(source = 'manual') AS manual, SUM(code IN ('111', '11111')) AS full,
         SUM(d1 = 1 AND c1 = 1) AS eustress, COUNT(DISTINCT user_id) AS users FROM answers`),
-      DB.prepare(`SELECT ${TARGET} AS target, COUNT(*) AS n FROM answers GROUP BY target`),
-      DB.prepare(`SELECT user_id, ${TARGET} AS target, COUNT(*) AS n FROM answers GROUP BY user_id, target`),
+      DB.prepare(`SELECT SUM(d1 = 0) AS d0, SUM(c1 = 0) AS c0, SUM(l = 0) AS l0, SUM(l = 0 AND l_kind = 'law') AS l_law,
+        SUM(l = 0 AND l_kind = 'rules') AS l_rules, SUM(l = 0 AND l_kind = 'norms') AS l_norms, SUM(l = 0 AND l_kind IS NULL) AS l_unknown,
+        SUM(d2 = '0') AS d2_0, SUM(c2 = '0') AS c2_0 FROM answers`),
+      DB.prepare(`SELECT code, user_id, COUNT(*) AS n, COUNT(DISTINCT local_date) AS days FROM answers
+        WHERE code LIKE '%0%' GROUP BY code, user_id`),
       DB.prepare(`SELECT AVG(lvl) AS avg_level, COUNT(*) AS users FROM (SELECT AVG(code IN ('111', '11111')) AS lvl FROM answers GROUP BY user_id HAVING COUNT(*) >= 3)`),
       DB.prepare(`SELECT code, COUNT(*) AS n FROM answers GROUP BY code ORDER BY n DESC LIMIT 12`),
       DB.prepare(`SELECT category, COUNT(*) AS n, SUM(code NOT IN ('111', '11111')) AS with_zero,
@@ -288,22 +290,18 @@ async function handleAdmin(request, env, path) {
         (SELECT COUNT(*) FROM users WHERE created_at > ?1) AS users_1d`).bind(now - DAY, now - 5 * 60_000),
     ]);
     const rows = (i) => r[i].results;
-    // главная мишень каждого устройства
-    const perUser = new Map();
+    // коды с нулями: сколько раз, у скольких устройств, у скольких регулярно (в 2+ разных днях)
+    const byCode = new Map();
     for (const x of rows(8)) {
-      const m = perUser.get(x.user_id) || {};
-      m[x.target] = x.n; perUser.set(x.user_id, m);
+      const c = byCode.get(x.code) || { code: x.code, n: 0, users: 0, regular_users: 0 };
+      c.n += x.n; c.users++; if (x.days >= 2) c.regular_users++;
+      byCode.set(x.code, c);
     }
-    const mainTargets = { C: 0, L: 0, D: 0, P: 0, full: 0 };
-    for (const m of perUser.values()) {
-      let best = null;
-      for (const k of ['C', 'L', 'D', 'P']) if (m[k] && (!best || m[k] > m[best])) best = k;
-      mainTargets[best || 'full']++;
-    }
+    const zeroCodes = [...byCode.values()].sort((a, b) => b.regular_users - a.regular_users || b.n - a.n);
     return json({
       now, users: rows(0)[0], platforms: rows(1), retention: rows(2)[0],
       daily: { installs: rows(3), pings: rows(4) }, pings_30d: rows(5),
-      answers: rows(6)[0], targets: rows(7), main_targets: mainTargets, level: rows(9)[0],
+      answers: rows(6)[0], zero_bits: rows(7)[0], zero_codes: zeroCodes, level: rows(9)[0],
       top_codes: rows(10), by_category: rows(11), by_company: rows(12),
       load: { ...rows(13)[0], db_bytes: r[13].meta?.size_after ?? null },
     });
@@ -325,14 +323,14 @@ async function handleAdmin(request, env, path) {
 
   if (path === '/api/admin/answers.csv') {
     const { results } = await DB.prepare(`SELECT user_id, source, t, answered_at, local_date, local_hour, weekday, category, label,
-      company, partner, d1, c1, d2, c2, l, code, ping_id FROM answers ORDER BY user_id, t`).all();
+      company, partner, d1, c1, d2, c2, l, l_kind, code, ping_id FROM answers ORDER BY user_id, t`).all();
     const cols = ['user_id', 'source', 't_iso', 'answered_after_sec', 'local_date', 'local_hour', 'weekday', 'category', 'label',
-      'company', 'partner', 'd1', 'c1', 'd2', 'c2', 'l', 'code', 'ping_id'];
+      'company', 'partner', 'd1', 'c1', 'd2', 'c2', 'l', 'l_kind', 'code', 'ping_id'];
     const esc = (v) => (v == null ? '' : /[",\n;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
     const lines = [cols.join(',')];
     for (const r of results) {
       lines.push([r.user_id, r.source, new Date(r.t).toISOString(), Math.round((r.answered_at - r.t) / 1000), r.local_date,
-        r.local_hour, r.weekday, r.category, r.label, r.company, r.partner, r.d1, r.c1, r.d2, r.c2, r.l, `'${r.code}`, r.ping_id].map(esc).join(','));
+        r.local_hour, r.weekday, r.category, r.label, r.company, r.partner, r.d1, r.c1, r.d2, r.c2, r.l, r.l_kind, `'${r.code}`, r.ping_id].map(esc).join(','));
     }
     return new Response('﻿' + lines.join('\n'), {
       headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="dcl832-answers.csv"', 'cache-control': 'no-store' },

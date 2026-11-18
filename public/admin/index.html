@@ -106,7 +106,6 @@ const CAT = { work: 'Работа', study: 'Учёба', food: 'Еда', road: '
 const PART = { partner: 'Партнёр', child: 'Ребёнок', parent: 'Родитель', colleague: 'Коллега', friend: 'Друг', other: 'Другой', '': '—' };
 const COMP = { alone: 'Один', pair: 'Вдвоём', group: '3+' };
 const PLAT = { android: 'Android', ios: 'iPhone', desktop: 'Компьютер', other: 'Другое', unknown: 'Пока неизвестно' };
-const TGT = { C: 'Деньги и «надо» (011)', L: 'Окружение (L=0)', D: 'Желание (001, 101)', P: 'Другой участник', full: 'Нулей нет' };
 const STATUS = { sent: 'ждут ответа', answered: 'отвечено', skipped: 'пропущено', expired: 'истекло', failed: 'не доставлено', cancelled: 'отменено (пауза)', scheduled: 'запланировано' };
 
 let token = '';
@@ -254,8 +253,7 @@ function renderDevices() {
 // ---------- Метод ----------
 function renderMethod() {
   const a = DATA.answers, lv = DATA.level;
-  const tg = Object.fromEntries(DATA.targets.map((x) => [x.target, x.n]));
-  const order = ['C', 'L', 'D', 'P', 'full'];
+  const z = DATA.zero_bits || {};
   $('tab-method').innerHTML = `
     <div class="kpis">
       <div class="kpi"><span>Записей действий</span><b>${a.n || 0}</b><small>от ${a.users || 0} устройств · вручную: ${a.manual || 0}</small></div>
@@ -263,10 +261,15 @@ function renderMethod() {
       <div class="kpi"><span>Без нулей (111 / 11111)</span><b>${pct(a.full || 0, a.n)}</b><small>${a.full || 0} из ${a.n || 0} действий</small></div>
       <div class="kpi"><span>Эустресс (D=1, C=1)</span><b>${pct(a.eustress || 0, a.n)}</b><small>${a.eustress || 0} из ${a.n || 0}</small></div>
     </div>
-    <div class="card"><h2>Главная мишень по устройствам</h2><p class="muted small">У скольких пользователей какая мишень оказалась главной.</p>
-      ${hbars(order.map((k) => ({ label: TGT[k], n: DATA.main_targets[k] || 0 })), Object.values(DATA.main_targets).reduce((x, y) => x + y, 0), 'zero')}</div>
-    <div class="card"><h2>Мишени по действиям</h2>
-      ${hbars(order.map((k) => ({ label: TGT[k], n: tg[k] || 0 })), a.n, 'zero')}</div>
+    <div class="card"><h2>Нули по разрядам</h2><p class="muted small">Сколько записей с нулём в каждом разряде. Одна запись может иметь несколько нулей.</p>
+      ${hbars([['D = 0 · не хочу', z.d0], ['C = 0 · не согласен', z.c0], ['L = 0 · нельзя', z.l0], ['D₂ = 0 · второй не хочет', z.d2_0], ['C₂ = 0 · второй не согласен', z.c2_0]]
+        .map(([label, n]) => ({ label, n: n || 0 })), a.n, 'zero')}</div>
+    <div class="card"><h2>«Нельзя»: что нарушено</h2>
+      ${hbars([['Закон', z.l_law], ['Правила места или работы', z.l_rules], ['Нормы круга', z.l_norms], ['Не уточнено (старые записи)', z.l_unknown]]
+        .map(([label, n]) => ({ label, n: n || 0 })), z.l0, 'zero')}</div>
+    <div class="card"><h2>Коды с нулями: регулярность</h2><p class="muted small">«Регулярно» — у устройства код встречался в двух и более разных днях.</p>
+      <div class="scroll"><table><tr><th>Код</th><th class="num">Записей</th><th class="num">Устройств</th><th class="num">Из них регулярно</th></tr>
+      ${(DATA.zero_codes || []).map((r) => `<tr><td><code>${esc(r.code)}</code></td><td class="num">${r.n}</td><td class="num">${r.users}</td><td class="num">${r.regular_users}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Пока нет</td></tr>'}</table></div></div>
     <div class="card"><div class="card-head"><h2>Частые коды</h2><button class="btn" id="csv">Скачать все записи (CSV)</button></div>
       <div class="scroll"><table><tr><th>Код</th><th class="num">Записей</th><th class="num">Доля</th></tr>
       ${DATA.top_codes.map((r) => `<tr><td><code>${esc(r.code)}</code></td><td class="num">${r.n}</td><td class="num">${pct(r.n, a.n)}</td></tr>`).join('')}</table></div></div>
