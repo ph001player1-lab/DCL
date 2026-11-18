@@ -32,6 +32,14 @@ class HttpError extends Error { constructor(status, code) { super(code); this.st
 
 const int = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
+const PLATFORMS = ['android', 'ios', 'desktop', 'other'];
+function platformFromUA(ua = '') {
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  if (/Android/i.test(ua)) return 'android';
+  if (/Windows|Macintosh|Linux|CrOS/i.test(ua)) return 'desktop';
+  return 'other';
+}
+
 function cleanSettings(body, partial) {
   const s = {};
   if (body.tz !== undefined) { if (typeof body.tz !== 'string' || !isValidTz(body.tz)) throw new HttpError(400, 'bad_tz'); s.tz = body.tz; }
@@ -111,9 +119,9 @@ async function handleApi(request, env, url) {
   if (path === '/api/register' && method === 'POST') {
     const s = cleanSettings(await readJson(request), false);
     const id = randomId(12), key = randomId(24);
-    await env.DB.prepare(`INSERT INTO users (id, key_hash, created_at, tz, wake_start, wake_end, pings_per_day, consent, last_seen)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, await sha256(key), now, s.tz, s.wake_start ?? 480, s.wake_end ?? 1380,
-      s.pings_per_day ?? 6, s.consent ?? 0, now).run();
+    await env.DB.prepare(`INSERT INTO users (id, key_hash, created_at, tz, wake_start, wake_end, pings_per_day, consent, last_seen, platform)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, await sha256(key), now, s.tz, s.wake_start ?? 480, s.wake_end ?? 1380,
+      s.pings_per_day ?? 6, s.consent ?? 0, now, platformFromUA(request.headers.get('user-agent'))).run();
     const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
     return json({ id, key, user: publicUser(user) }, 201);
   }
@@ -126,6 +134,16 @@ async function handleApi(request, env, url) {
   }
 
   if (path === '/api/me' && method === 'GET') return json(publicUser(user));
+
+  if (path === '/api/heartbeat' && method === 'POST') {
+    const b = await readJson(request, 2048);
+    const platform = PLATFORMS.includes(b.platform) ? b.platform : platformFromUA(request.headers.get('user-agent'));
+    const standalone = b.standalone ? 1 : 0;
+    if (platform !== user.platform || standalone !== user.standalone || now - (user.last_seen || 0) > 600_000) {
+      await env.DB.prepare('UPDATE users SET platform = ?, standalone = ?, last_seen = ? WHERE id = ?').bind(platform, standalone, now, user.id).run();
+    }
+    return json({ ok: true });
+  }
 
   if (path === '/api/me' && method === 'DELETE') {
     await env.DB.batch([
@@ -234,26 +252,75 @@ async function handleAdmin(request, env, path) {
   const DB = env.DB;
 
   if (path === '/api/admin/summary') {
-    const since = Date.now() - 30 * 86400_000;
-    const [users, pings, codes, byCat, byCompany, zeros, byHour] = await DB.batch([
+    const now = Date.now(), DAY = 86400_000, since30 = now - 30 * DAY;
+    // мишень действия — так же, как в приложении (public/app/dcl.js: targetOf)
+    const TARGET = `CASE WHEN l = 0 THEN 'L' WHEN d1 = 0 AND c1 = 1 THEN 'C' WHEN d1 = 0 OR c1 = 0 THEN 'D'
+      WHEN company = 'pair' AND (d2 = '0' OR c2 = '0') THEN 'P' ELSE 'full' END`;
+    const MSK = 10800; // даты по Москве
+    const r = await DB.batch([
       DB.prepare(`SELECT COUNT(*) AS total, SUM(push_endpoint IS NOT NULL) AS with_push, SUM(consent) AS consented,
-        SUM(last_seen > ?) AS active_7d FROM users`).bind(Date.now() - 7 * 86400_000),
-      DB.prepare('SELECT status, COUNT(*) AS n FROM pings WHERE scheduled_at > ? AND scheduled_at <= ? GROUP BY status').bind(since, Date.now()),
-      DB.prepare(`SELECT code, company, COUNT(*) AS n FROM answers WHERE source = 'ping' GROUP BY code, company ORDER BY n DESC LIMIT 40`),
+        SUM(last_seen > ?1) AS active_1d, SUM(last_seen > ?2) AS active_7d, SUM(created_at > ?1) AS new_1d, SUM(created_at > ?2) AS new_7d,
+        SUM(standalone = 1) AS installed, SUM(paused_until > ?3) AS paused FROM users`).bind(now - DAY, now - 7 * DAY, now),
+      DB.prepare(`SELECT COALESCE(platform, 'unknown') AS platform, COUNT(*) AS n, SUM(standalone = 1) AS installed,
+        SUM(last_seen > ?) AS active_7d FROM users GROUP BY 1 ORDER BY n DESC`).bind(now - 7 * DAY),
+      DB.prepare(`SELECT COUNT(*) AS cohort, SUM(last_seen >= created_at + ?) AS retained FROM users WHERE created_at < ?`).bind(7 * DAY, now - 7 * DAY),
+      DB.prepare(`SELECT date(created_at / 1000 + ${MSK}, 'unixepoch') AS d, COUNT(*) AS n FROM users WHERE created_at > ? GROUP BY d ORDER BY d`).bind(since30),
+      DB.prepare(`SELECT date(scheduled_at / 1000 + ${MSK}, 'unixepoch') AS d, SUM(status IN ('sent', 'answered', 'skipped', 'expired')) AS delivered,
+        SUM(status = 'answered') AS answered, COUNT(DISTINCT CASE WHEN status = 'answered' THEN user_id END) AS users
+        FROM pings WHERE scheduled_at > ? AND scheduled_at <= ? GROUP BY d ORDER BY d`).bind(since30, now),
+      DB.prepare(`SELECT status, COUNT(*) AS n FROM pings WHERE scheduled_at > ? AND scheduled_at <= ? GROUP BY status`).bind(since30, now),
+      DB.prepare(`SELECT COUNT(*) AS n, SUM(source = 'manual') AS manual, SUM(code IN ('111', '11111')) AS full,
+        SUM(d1 = 1 AND c1 = 1) AS eustress, COUNT(DISTINCT user_id) AS users FROM answers`),
+      DB.prepare(`SELECT ${TARGET} AS target, COUNT(*) AS n FROM answers GROUP BY target`),
+      DB.prepare(`SELECT user_id, ${TARGET} AS target, COUNT(*) AS n FROM answers GROUP BY user_id, target`),
+      DB.prepare(`SELECT AVG(lvl) AS avg_level, COUNT(*) AS users FROM (SELECT AVG(code IN ('111', '11111')) AS lvl FROM answers GROUP BY user_id HAVING COUNT(*) >= 3)`),
+      DB.prepare(`SELECT code, COUNT(*) AS n FROM answers GROUP BY code ORDER BY n DESC LIMIT 12`),
       DB.prepare(`SELECT category, COUNT(*) AS n, SUM(code NOT IN ('111', '11111')) AS with_zero,
-        SUM(d1 = 0) AS d0, SUM(c1 = 0) AS c0, SUM(l = 0) AS l0 FROM answers WHERE source = 'ping' GROUP BY category ORDER BY n DESC`),
+        SUM(d1 = 0) AS d0, SUM(c1 = 0) AS c0, SUM(l = 0) AS l0 FROM answers GROUP BY category ORDER BY n DESC`),
       DB.prepare(`SELECT company, COALESCE(partner, '') AS partner, COUNT(*) AS n, SUM(code NOT IN ('111', '11111')) AS not_full,
-        SUM(d2 = '0') AS d2_0, SUM(c2 = '0') AS c2_0, SUM(d2 = 'x' OR c2 = 'x') AS unknown FROM answers WHERE source = 'ping'
-        GROUP BY company, partner ORDER BY n DESC`),
-      DB.prepare(`SELECT COUNT(*) AS n, SUM(d1 = 1 AND c1 = 1) AS eustress, SUM(d1 = 0 OR c1 = 0) AS distress,
-        SUM(code IN ('111', '11111')) AS full FROM answers WHERE source = 'ping'`),
-      DB.prepare(`SELECT local_hour AS hour, COUNT(*) AS n, SUM(code NOT IN ('111', '11111')) AS not_full
-        FROM answers WHERE source = 'ping' GROUP BY local_hour ORDER BY local_hour`),
+        SUM(d2 = '0') AS d2_0, SUM(c2 = '0') AS c2_0, SUM(d2 = 'x' OR c2 = 'x') AS unknown FROM answers GROUP BY company, partner ORDER BY n DESC`),
+      DB.prepare(`SELECT (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM pings) AS pings, (SELECT COUNT(*) FROM answers) AS answers,
+        (SELECT COUNT(*) FROM pings WHERE status = 'failed' AND scheduled_at > ?1) AS failed_1d,
+        (SELECT COUNT(*) FROM pings WHERE status IN ('sent', 'answered', 'skipped', 'expired') AND scheduled_at > ?1) AS delivered_1d,
+        (SELECT COUNT(*) FROM pings WHERE status = 'scheduled' AND scheduled_at < ?2) AS stuck,
+        (SELECT MAX(sent_at) FROM pings) AS last_sent,
+        (SELECT COUNT(*) FROM answers WHERE created_at > ?1) AS answers_1d,
+        (SELECT COUNT(*) FROM users WHERE created_at > ?1) AS users_1d`).bind(now - DAY, now - 5 * 60_000),
     ]);
+    const rows = (i) => r[i].results;
+    // главная мишень каждого устройства
+    const perUser = new Map();
+    for (const x of rows(8)) {
+      const m = perUser.get(x.user_id) || {};
+      m[x.target] = x.n; perUser.set(x.user_id, m);
+    }
+    const mainTargets = { C: 0, L: 0, D: 0, P: 0, full: 0 };
+    for (const m of perUser.values()) {
+      let best = null;
+      for (const k of ['C', 'L', 'D', 'P']) if (m[k] && (!best || m[k] > m[best])) best = k;
+      mainTargets[best || 'full']++;
+    }
     return json({
-      users: users.results[0], pings_30d: pings.results, top_codes: codes.results, by_category: byCat.results,
-      by_company: byCompany.results, totals: zeros.results[0], by_hour: byHour.results,
+      now, users: rows(0)[0], platforms: rows(1), retention: rows(2)[0],
+      daily: { installs: rows(3), pings: rows(4) }, pings_30d: rows(5),
+      answers: rows(6)[0], targets: rows(7), main_targets: mainTargets, level: rows(9)[0],
+      top_codes: rows(10), by_category: rows(11), by_company: rows(12),
+      load: { ...rows(13)[0], db_bytes: r[13].meta?.size_after ?? null },
     });
+  }
+
+  if (path === '/api/admin/devices') {
+    const now = Date.now(), week = now - 7 * 86400_000;
+    const { results } = await DB.prepare(`SELECT u.id, u.created_at, u.last_seen, u.platform, u.standalone, u.consent, u.pings_per_day,
+        u.push_endpoint IS NOT NULL AS has_push, u.paused_until, u.tz, u.wake_start, u.wake_end,
+        (SELECT COUNT(*) FROM pings p WHERE p.user_id = u.id AND p.scheduled_at > ?1 AND p.scheduled_at <= ?2
+          AND p.status IN ('sent', 'answered', 'skipped', 'expired')) AS delivered_7d,
+        (SELECT COUNT(*) FROM pings p WHERE p.user_id = u.id AND p.scheduled_at > ?1 AND p.status = 'answered') AS answered_7d,
+        (SELECT COUNT(*) FROM answers a WHERE a.user_id = u.id) AS answers,
+        (SELECT AVG(a.code IN ('111', '11111')) FROM answers a WHERE a.user_id = u.id) AS level,
+        (SELECT MAX(a.t) FROM answers a WHERE a.user_id = u.id) AS last_answer
+      FROM users u ORDER BY COALESCE(u.last_seen, u.created_at) DESC LIMIT 500`).bind(week, now).all();
+    return json({ now, devices: results.map((d) => ({ ...d, id: d.id.slice(0, 6) })) });
   }
 
   if (path === '/api/admin/answers.csv') {
@@ -390,7 +457,7 @@ const NO_CACHE = /\.(html|js|css|webmanifest)$/;
 function serveStatic(request, url) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method Not Allowed', { status: 405 });
   let path = decodeURIComponent(url.pathname);
-  if (['/app', '/admin'].includes(path)) return Response.redirect(`${url.origin}${path}/${url.search}`, 301);
+  if (['/app', '/admin', '/webinar'].includes(path)) return Response.redirect(`${url.origin}${path}/${url.search}`, 301);
   if (path.endsWith('/')) path += 'index.html';
   const f = STATIC[path];
   const headers = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin' };

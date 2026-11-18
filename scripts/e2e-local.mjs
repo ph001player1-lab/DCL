@@ -90,6 +90,11 @@ assert.equal(sql(`SELECT status FROM pings WHERE id='${ping.id}'`)[0].status, 'a
 r = await api('/api/answers', { method: 'POST', body: JSON.stringify({ answers: [{ ...answer, d1: 5 }] }) }, token);
 assert.equal(r.status, 400);
 
+// 6b. Отметка присутствия
+r = await api('/api/heartbeat', { method: 'POST', body: JSON.stringify({ platform: 'android', standalone: 1 }) }, token);
+assert.equal(r.status, 200);
+assert.equal(sql(`SELECT platform, standalone FROM users WHERE id='${userId}'`)[0].platform, 'android');
+
 // 7. Настройки, пауза
 r = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ pings_per_day: 3, wake_start: 600, wake_end: 1320 }) }, token);
 assert.equal(r.body.pings_per_day, 3);
@@ -100,7 +105,12 @@ assert.ok(r.body.paused_until > now);
 const adminToken = execFileSync('sh', ['-c', "grep ADMIN_TOKEN .dev.vars | cut -d= -f2"], { encoding: 'utf8' }).trim();
 assert.equal((await api('/api/admin/summary', {}, 'wrong-token-wrong-token')).status, 401);
 r = await api('/api/admin/summary', {}, adminToken);
-assert.ok(r.body.totals.n >= 1);
+assert.ok(r.body.answers.n >= 1, 'summary answers');
+assert.ok(r.body.main_targets.C >= 1, 'main target C for 01x11');
+assert.ok(r.body.platforms.some((p) => p.platform === 'android'), 'platform android');
+r = await api('/api/admin/devices', {}, adminToken);
+const dev = r.body.devices.find((d) => userId.startsWith(d.id));
+assert.ok(dev, 'device listed'); assert.equal(dev.standalone, 1); assert.equal(dev.answers, 1);
 r = await api('/api/admin/answers.csv', {}, adminToken);
 assert.ok(r.body.includes("'01x11"));
 

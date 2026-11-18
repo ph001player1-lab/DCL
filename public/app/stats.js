@@ -1,5 +1,5 @@
 // Расчёты для экранов «Сегодня» и «Анализ». Чистые функции, без DOM.
-import { isFull, hasZero, isEustress, zeroBits, CATEGORY_LABEL, codeOf } from './dcl.js';
+import { isFull, hasZero, isEustress, zeroBits, CATEGORY_LABEL, codeOf, targetOf, TARGET_ORDER } from './dcl.js';
 
 /** Длина окна бодрствования в минутах */
 export function windowMinutes(s) {
@@ -36,28 +36,49 @@ export function summarize(answers, pings) {
   };
 }
 
-export function byDay(answers, dates) {
-  const map = new Map(dates.map((d) => [d, { date: d, n: 0, full: 0, zero: 0 }]));
-  for (const a of answers) {
-    const r = map.get(a.local_date);
-    if (!r) continue;
-    r.n++;
-    if (isFull(a.code)) r.full++;
-    else if (hasZero(a.code)) r.zero++;
-  }
-  return [...map.values()];
+/** Главная мишень: сколько действий приходится на каждую (C, L, D, P) */
+export function targetSummary(answers) {
+  const counts = { C: 0, L: 0, D: 0, P: 0 };
+  for (const a of answers) { const t = targetOf(a); if (t) counts[t]++; }
+  const total = TARGET_ORDER.reduce((n, k) => n + counts[k], 0);
+  let main = null;
+  for (const k of TARGET_ORDER) if (counts[k] && (!main || counts[k] > counts[main])) main = k;
+  return { counts, total, main };
 }
 
-/** Тепловая карта: день недели (1..7) × трёхчасовой интервал (0..7) */
-export function heatmap(answers) {
-  const cells = {};
+/** Три оси: сколько раз ответ «да» по D, C, L */
+export function axes(answers) {
+  const r = { n: answers.length, d1: 0, c1: 0, l: 0 };
+  for (const a of answers) { if (a.d1 === 1) r.d1++; if (a.c1 === 1) r.c1++; if (a.l === 1) r.l++; }
+  return r;
+}
+
+export const DAY_PARTS = [
+  ['morning', 'Утро', '5–12'], ['day', 'День', '12–17'], ['evening', 'Вечер', '17–23'], ['night', 'Ночь', '23–5'],
+];
+const partOf = (h) => (h >= 5 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'day' : h >= 17 && h < 23 ? 'evening' : 'night');
+
+/** Время суток: без нулей / с нулями */
+export function dayParts(answers) {
+  const m = Object.fromEntries(DAY_PARTS.map(([k]) => [k, { n: 0, full: 0, zero: 0 }]));
   for (const a of answers) {
-    const k = `${a.weekday}:${Math.floor(a.local_hour / 3)}`;
-    const c = (cells[k] ||= { n: 0, zero: 0 });
-    c.n++;
-    if (hasZero(a.code)) c.zero++;
+    const r = m[partOf(a.local_hour)];
+    r.n++;
+    if (isFull(a.code)) r.full++; else if (hasZero(a.code)) r.zero++;
   }
-  return cells;
+  return m;
+}
+
+/** Дни с записями, новые сверху */
+export function daysList(answers) {
+  const m = new Map();
+  for (const a of answers) {
+    const r = m.get(a.local_date) || { date: a.local_date, n: 0, full: 0, zero: 0 };
+    r.n++;
+    if (isFull(a.code)) r.full++; else if (hasZero(a.code)) r.zero++;
+    m.set(a.local_date, r);
+  }
+  return [...m.values()].sort((x, y) => (x.date < y.date ? 1 : -1));
 }
 
 function topBit(bits) {

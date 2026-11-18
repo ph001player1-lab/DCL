@@ -4,98 +4,316 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>DCL-832 · Данные</title>
+  <title>DCL-832 · Админка</title>
   <style>
-    :root { --bg: #f6f4ef; --surface: #fff; --ink: #1c2220; --muted: #626a66; --line: #e3dfd6; --one: #2e7d5b; --zero: #c8553a; color-scheme: light; }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) { --bg: #111513; --surface: #1a1f1d; --ink: #eaeee9; --muted: #9ca59f; --line: #2c3430; --one: #58b98a; --zero: #ec8a6c; color-scheme: dark; }
+    :root {
+      --bg: #f6f4ef; --surface: #fff; --surface-2: #efece5; --ink: #1c2220; --muted: #626a66; --line: #e3dfd6;
+      --one: #0f7a4a; --one-soft: #cfe6d9; --zero: #e5824f; --zero-ink: #a4461b; --accent: #24684b; color-scheme: light;
     }
-    :root[data-theme="dark"] { --bg: #111513; --surface: #1a1f1d; --ink: #eaeee9; --muted: #9ca59f; --line: #2c3430; --one: #58b98a; --zero: #ec8a6c; color-scheme: dark; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --bg: #111513; --surface: #1a1f1d; --surface-2: #232a27; --ink: #eaeee9; --muted: #9ca59f; --line: #2c3430;
+        --one: #48a678; --one-soft: #24453a; --zero: #c9663f; --zero-ink: #f0a07a; --accent: #48a678; color-scheme: dark; }
+    }
+    :root[data-theme="dark"] { --bg: #111513; --surface: #1a1f1d; --surface-2: #232a27; --ink: #eaeee9; --muted: #9ca59f; --line: #2c3430;
+      --one: #48a678; --one-soft: #24453a; --zero: #c9663f; --zero-ink: #f0a07a; --accent: #48a678; color-scheme: dark; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-    main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; }
-    h1 { margin: 0 0 16px; font-size: 1.5rem; }
-    h2 { font-size: 1.05rem; margin: 0 0 10px; }
-    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; overflow-x: auto; }
-    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-    .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
-    .kpi b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
-    .kpi span { color: var(--muted); font-size: .85rem; }
-    table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-    th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
-    th { color: var(--muted); font-weight: 600; font-size: .85rem; }
-    td.num, th.num { text-align: right; }
-    code { font: 700 .95rem ui-monospace, Menlo, monospace; letter-spacing: .05em; }
-    input, button { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
-    button { background: var(--one); color: #fff; border-color: transparent; font-weight: 600; cursor: pointer; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
-    .muted { color: var(--muted); }
-    .bar { display: inline-block; height: 8px; background: var(--zero); border-radius: 4px; vertical-align: middle; }
     [hidden] { display: none !important; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 56px; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+    h1 { margin: 0; font-size: 1.4rem; }
+    h2 { font-size: 1.02rem; margin: 0 0 4px; }
+    .muted { color: var(--muted); } .small { font-size: .85rem; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+    .kpi b { display: block; font-size: 1.7rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .kpi span { color: var(--muted); font-size: .85rem; }
+    .kpi small { display: block; color: var(--muted); font-size: .8rem; margin-top: 2px; }
+    input, button { font: inherit; color: inherit; }
+    input[type=password] { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); min-width: 0; }
+    .btn { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; }
+    .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .tabs { display: flex; gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 4px; margin-bottom: 14px; overflow-x: auto; }
+    .tabs button { border: 0; background: transparent; padding: 9px 14px; border-radius: 9px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
+    .tabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 6px 12px; cursor: pointer; font-size: .88rem; }
+    .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .scroll { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 7px 12px 7px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 600; font-size: .82rem; }
+    td.num, th.num { text-align: right; }
+    code { font: 700 .92rem ui-monospace, Menlo, monospace; letter-spacing: .04em; }
+    .ok { color: var(--one); font-weight: 600; } .warn { color: var(--zero-ink); font-weight: 600; }
+    /* столбчатые графики: тонкие столбики, скругление 4px у вершины, зазор 2px */
+    .chart { position: relative; height: 150px; display: flex; align-items: flex-end; gap: 2px; padding-top: 18px; border-bottom: 1px solid var(--line); }
+    .chart .col { flex: 1; height: 100%; display: flex; align-items: flex-end; position: relative; cursor: default; }
+    .chart .col:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+    .chart .bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--one); min-height: 0; }
+    .chart .track { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 4px 4px 0 0; background: var(--one-soft); }
+    .chart .bar.over { position: relative; }
+    .chart .ymax { position: absolute; left: 0; top: 0; font-size: .75rem; color: var(--muted); }
+    .chart .grid { position: absolute; left: 0; right: 0; top: 18px; border-top: 1px dashed var(--line); }
+    .xlabels { display: flex; gap: 2px; font-size: .72rem; color: var(--muted); margin-top: 4px; }
+    .xlabels span { flex: 1; text-align: center; overflow: hidden; }
+    .legend { display: flex; gap: 16px; font-size: .82rem; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+    .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: 0; }
+    .hbars { display: flex; flex-direction: column; gap: 10px; }
+    .hbar { display: grid; grid-template-columns: minmax(130px, 1.2fr) 3fr 3.5em; gap: 10px; align-items: center; }
+    .hbar .m { height: 10px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+    .hbar .m i { display: block; height: 100%; border-radius: 4px; }
+    .hbar b { text-align: right; font-variant-numeric: tabular-nums; }
+    .meter { height: 12px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin: 8px 0 4px; }
+    .meter i { display: block; height: 100%; border-radius: 4px; background: var(--one); }
+    #tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 10px; border-radius: 8px; font-size: .82rem; z-index: 10; white-space: nowrap; opacity: 0; transition: opacity .1s; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: .8rem; background: var(--surface-2); }
+    .pill.g { background: var(--one-soft); }
   </style>
 </head>
 <body>
 <main>
-  <h1>DCL-832 · Анонимные данные</h1>
-  <form class="row" id="login">
-    <input type="password" id="token" placeholder="Пароль админки (ADMIN_TOKEN)" autocomplete="current-password" style="flex:1;min-width:240px">
-    <button>Показать</button>
+  <header><h1>DCL-832 · Админка</h1><button class="btn" id="logout" hidden>Выйти</button></header>
+
+  <form class="card row" id="login">
+    <input type="password" id="token" placeholder="Пароль (ADMIN_TOKEN)" autocomplete="current-password" style="flex:1;min-width:220px">
+    <label class="row small"><input type="checkbox" id="remember" checked> Запомнить на этом устройстве</label>
+    <button class="btn primary">Войти</button>
+    <p class="warn small" id="err" hidden style="width:100%;margin:0">Неверный пароль.</p>
   </form>
-  <div id="out"></div>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button data-tab="overview" class="on">Обзор</button><button data-tab="devices">Устройства</button>
+      <button data-tab="method">Метод</button><button data-tab="load">Нагрузка</button>
+    </div>
+    <section id="tab-overview"></section>
+    <section id="tab-devices" hidden></section>
+    <section id="tab-method" hidden></section>
+    <section id="tab-load" hidden></section>
+    <p class="muted small" id="updated"></p>
+  </div>
 </main>
+<div id="tip"></div>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pct = (a, b) => (b ? Math.round((a / b) * 100) + '%' : '—');
 const CAT = { work: 'Работа', study: 'Учёба', food: 'Еда', road: 'Дорога', home: 'Дом, быт', care: 'Забота о близких', sport: 'Спорт, тело', rest: 'Отдых', screen: 'Телефон, экран', talk: 'Общение', other: 'Другое' };
 const PART = { partner: 'Партнёр', child: 'Ребёнок', parent: 'Родитель', colleague: 'Коллега', friend: 'Друг', other: 'Другой', '': '—' };
 const COMP = { alone: 'Один', pair: 'Вдвоём', group: '3+' };
-const pct = (a, b) => (b ? Math.round((a / b) * 100) + '%' : '—');
-let token = '';
-try { token = sessionStorage.getItem('dcl-admin') || ''; } catch {}
-if (token) load();
+const PLAT = { android: 'Android', ios: 'iPhone', desktop: 'Компьютер', other: 'Другое', unknown: 'Пока неизвестно' };
+const TGT = { C: 'Деньги и «надо» (011)', L: 'Окружение (L=0)', D: 'Желание (001, 101)', P: 'Другой участник', full: 'Нулей нет' };
+const STATUS = { sent: 'ждут ответа', answered: 'отвечено', skipped: 'пропущено', expired: 'истекло', failed: 'не доставлено', cancelled: 'отменено (пауза)', scheduled: 'запланировано' };
 
-$('login').addEventListener('submit', (e) => {
+let token = '';
+try { token = localStorage.getItem('dcl-admin') || sessionStorage.getItem('dcl-admin') || ''; } catch {}
+let DATA = null, DEVICES = null, filter = 'all';
+
+$('login').addEventListener('submit', async (e) => {
   e.preventDefault();
   token = $('token').value.trim();
-  try { sessionStorage.setItem('dcl-admin', token); } catch {}
-  load();
+  if (await load()) {
+    try { ($('remember').checked ? localStorage : sessionStorage).setItem('dcl-admin', token); } catch {}
+  }
 });
+$('logout').addEventListener('click', () => {
+  try { localStorage.removeItem('dcl-admin'); sessionStorage.removeItem('dcl-admin'); } catch {}
+  location.reload();
+});
+document.querySelector('.tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]'); if (!b) return;
+  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  ['overview', 'devices', 'method', 'load'].forEach((t) => { $('tab-' + t).hidden = t !== b.dataset.tab; });
+});
+if (token) load();
+
+const get = (p) => fetch(p, { headers: { authorization: 'Bearer ' + token } });
 
 async function load() {
-  const res = await fetch('/api/admin/summary', { headers: { authorization: 'Bearer ' + token } });
-  if (!res.ok) { $('out').innerHTML = '<p class="muted">Неверный пароль.</p>'; return; }
-  $('login').hidden = true;
-  const d = await res.json();
-  const u = d.users, t = d.totals;
-  const pings = Object.fromEntries(d.pings_30d.map((r) => [r.status, r.n]));
-  const delivered = (pings.sent || 0) + (pings.answered || 0) + (pings.skipped || 0) + (pings.expired || 0);
-  $('out').innerHTML = `
+  const [r1, r2] = await Promise.all([get('/api/admin/summary'), get('/api/admin/devices')]);
+  if (!r1.ok || !r2.ok) { $('err').hidden = false; $('login').hidden = false; return false; }
+  DATA = await r1.json(); DEVICES = (await r2.json()).devices;
+  $('login').hidden = true; $('app').hidden = false; $('logout').hidden = false;
+  renderOverview(); renderDevices(); renderMethod(); renderLoad();
+  $('updated').textContent = 'Обновлено: ' + new Date(DATA.now).toLocaleString('ru-RU');
+  return true;
+}
+
+// ---------- помощники ----------
+function lastDays(n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(Date.now() + 3 * 3600_000 - i * 86400_000); // даты по Москве
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+const dLabel = (d) => { const [, m, dd] = d.split('-'); return `${+dd}.${m}`; };
+/** Столбики по дням. series: [{key, label, cls}] — первая серия рисуется как «дорожка», вторая поверх неё */
+function dayChart(rows, valueKey, tipFn, overlayKey) {
+  const days = lastDays(30);
+  const map = new Map(rows.map((r) => [r.d, r]));
+  const max = Math.max(1, ...days.map((d) => (map.get(d)?.[valueKey] || 0)));
+  const cols = days.map((d) => {
+    const r = map.get(d) || {};
+    const v = r[valueKey] || 0;
+    const h = (v / max) * 100;
+    const tip = esc(tipFn(d, r));
+    if (overlayKey) {
+      const o = r[overlayKey] || 0;
+      return `<div class="col" data-tip="${tip}"><div class="track" style="height:${h}%"></div><div class="bar over" style="height:${(o / max) * 100}%"></div></div>`;
+    }
+    return `<div class="col" data-tip="${tip}"><div class="bar" style="height:${h}%"></div></div>`;
+  }).join('');
+  const xl = days.map((d, i) => `<span>${i % 5 === 4 || i === 0 ? dLabel(d) : ''}</span>`).join('');
+  return `<div class="chart"><span class="ymax">${max}</span><div class="grid"></div>${cols}</div><div class="xlabels">${xl}</div>`;
+}
+function hbars(items, total, cls = 'one') {
+  const max = Math.max(1, ...items.map((x) => x.n));
+  return `<div class="hbars">${items.map((x) => `<div class="hbar" data-tip="${esc(`${x.label}: ${x.n}${total ? ` из ${total}` : ''}`)}">
+    <span>${esc(x.label)}</span><div class="m"><i style="width:${(x.n / max) * 100}%;background:var(--${cls})"></i></div><b>${x.n}</b></div>`).join('')}</div>`;
+}
+function ago(ms) {
+  if (!ms) return '—';
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 2) return 'только что';
+  if (m < 60) return `${m} мин назад`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} ч назад`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'вчера' : `${d} дн. назад`;
+}
+const date = (ms) => (ms ? new Date(ms).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '—');
+
+// ---------- Обзор ----------
+function renderOverview() {
+  const u = DATA.users, ret = DATA.retention;
+  const ps = Object.fromEntries(DATA.pings_30d.map((x) => [x.status, x.n]));
+  const delivered = (ps.sent || 0) + (ps.answered || 0) + (ps.skipped || 0) + (ps.expired || 0);
+  $('tab-overview').innerHTML = `
     <div class="kpis">
-      <div class="kpi"><b>${u.total}</b><span>устройств</span></div>
-      <div class="kpi"><b>${u.with_push || 0}</b><span>с включёнными сигналами</span></div>
-      <div class="kpi"><b>${u.consented || 0}</b><span>дали согласие</span></div>
-      <div class="kpi"><b>${u.active_7d || 0}</b><span>активны за 7 дней</span></div>
-      <div class="kpi"><b>${t.n}</b><span>ответов на сигналы</span></div>
-      <div class="kpi"><b>${pct(pings.answered || 0, delivered)}</b><span>сигналов отвечено (30 дн.)</span></div>
-      <div class="kpi"><b>${pct(t.full, t.n)}</b><span>111 / 11111</span></div>
-      <div class="kpi"><b>${pct(t.eustress, t.n)}</b><span>эустресс (D=1, C=1)</span></div>
+      <div class="kpi"><span>Устройств всего</span><b>${u.total}</b><small>+${u.new_7d || 0} за 7 дней · +${u.new_1d || 0} за сутки</small></div>
+      <div class="kpi"><span>Активны за сутки</span><b>${u.active_1d || 0}</b><small>за 7 дней: ${u.active_7d || 0}</small></div>
+      <div class="kpi"><span>Установили как приложение</span><b>${u.installed || 0}</b><small>из ${u.total} · остальные в браузере или неизвестно</small></div>
+      <div class="kpi"><span>Сигналы включены</span><b>${u.with_push || 0}</b><small>на паузе: ${u.paused || 0}</small></div>
+      <div class="kpi"><span>Дали согласие на данные</span><b>${u.consented || 0}</b><small>${pct(u.consented || 0, u.total)} устройств</small></div>
+      <div class="kpi"><span>Пользуются через неделю</span><b>${ret.cohort ? pct(ret.retained || 0, ret.cohort) : '—'}</b><small>${ret.cohort ? `${ret.retained || 0} из ${ret.cohort} установивших 7+ дней назад` : 'пока нет устройств старше 7 дней'}</small></div>
+      <div class="kpi"><span>Отвечено сигналов за 30 дней</span><b>${pct(ps.answered || 0, delivered)}</b><small>${ps.answered || 0} из ${delivered}</small></div>
     </div>
-    <p class="row" style="margin-top:14px"><button id="csv">Скачать все ответы (CSV)</button><span class="muted">Можно открыть в Excel или Google Таблицах.</span></p>
-    <div class="card"><h2>Частые коды</h2><table><tr><th>Код</th><th>С кем</th><th class="num">Ответов</th><th class="num">Доля</th></tr>
-      ${d.top_codes.map((r) => `<tr><td><code>${esc(r.code)}</code></td><td>${COMP[r.company] || r.company}</td><td class="num">${r.n}</td><td class="num">${pct(r.n, t.n)}</td></tr>`).join('')}</table></div>
-    <div class="card"><h2>По видам действий</h2><table><tr><th>Действие</th><th class="num">Ответов</th><th>С нулями</th><th class="num">D=0</th><th class="num">C=0</th><th class="num">L=0</th></tr>
-      ${d.by_category.map((r) => `<tr><td>${CAT[r.category] || esc(r.category)}</td><td class="num">${r.n}</td><td><span class="bar" style="width:${(r.with_zero / r.n) * 80}px"></span> ${pct(r.with_zero, r.n)}</td><td class="num">${r.d0}</td><td class="num">${r.c0}</td><td class="num">${r.l0}</td></tr>`).join('')}</table></div>
-    <div class="card"><h2>С кем</h2><table><tr><th>Состав</th><th>Второй</th><th class="num">Ответов</th><th class="num">Не 111/11111</th><th class="num">D₂=0</th><th class="num">C₂=0</th><th class="num">«не знаю»</th></tr>
-      ${d.by_company.map((r) => `<tr><td>${COMP[r.company] || r.company}</td><td>${PART[r.partner] || esc(r.partner)}</td><td class="num">${r.n}</td><td class="num">${pct(r.not_full, r.n)}</td><td class="num">${r.d2_0 ?? 0}</td><td class="num">${r.c2_0 ?? 0}</td><td class="num">${r.unknown ?? 0}</td></tr>`).join('')}</table></div>
-    <div class="card"><h2>По часам (местное время)</h2><table><tr><th>Час</th><th class="num">Ответов</th><th>Не 111/11111</th></tr>
-      ${d.by_hour.map((r) => `<tr><td>${r.hour}:00</td><td class="num">${r.n}</td><td><span class="bar" style="width:${(r.not_full / r.n) * 80}px"></span> ${pct(r.not_full, r.n)}</td></tr>`).join('')}</table></div>`;
+    <div class="card"><div class="card-head"><h2>Новые устройства по дням</h2><span class="muted small">30 дней, по Москве</span></div>
+      ${dayChart(DATA.daily.installs, 'n', (d, r) => `${dLabel(d)}: ${r.n || 0} новых`)}</div>
+    <div class="card"><div class="card-head"><h2>Сигналы по дням</h2><span class="muted small">доставлено и отвечено</span></div>
+      ${dayChart(DATA.daily.pings, 'delivered', (d, r) => `${dLabel(d)}: доставлено ${r.delivered || 0}, отвечено ${r.answered || 0}`, 'answered')}
+      <div class="legend"><span><i class="sw" style="background:var(--one-soft)"></i>доставлено</span><span><i class="sw" style="background:var(--one)"></i>отвечено</span></div></div>
+    <div class="card"><div class="card-head"><h2>Устройств, ответивших на сигналы, по дням</h2><span class="muted small">приблизительно активные пользователи</span></div>
+      ${dayChart(DATA.daily.pings, 'users', (d, r) => `${dLabel(d)}: ${r.users || 0} устройств ответили`)}</div>
+    <div class="card"><h2>Платформы</h2>
+      <div class="scroll"><table><tr><th>Платформа</th><th class="num">Устройств</th><th class="num">Как приложение</th><th class="num">Активны 7 дн.</th></tr>
+      ${DATA.platforms.map((p) => `<tr><td>${PLAT[p.platform] || esc(p.platform)}</td><td class="num">${p.n}</td><td class="num">${p.installed || 0}</td><td class="num">${p.active_7d || 0}</td></tr>`).join('')}</table></div>
+      <p class="muted small">Платформа и способ запуска записываются, когда приложение открывается после обновления. У старых устройств они появятся при следующем запуске.</p></div>`;
+}
+
+// ---------- Устройства ----------
+const FILTERS = [['all', 'Все'], ['active', 'Активны 7 дн.'], ['app', 'Как приложение'], ['browser', 'В браузере'], ['nopush', 'Сигналы выключены']];
+function renderDevices() {
+  const week = Date.now() - 7 * 86400_000;
+  const ok = (d) => filter === 'all' || (filter === 'active' && d.last_seen > week) || (filter === 'app' && d.standalone === 1)
+    || (filter === 'browser' && d.standalone === 0) || (filter === 'nopush' && !d.has_push);
+  const list = DEVICES.filter(ok);
+  const signals = (d) => !d.has_push ? '<span class="warn">выкл.</span>' : d.paused_until > Date.now() ? 'пауза' : `${d.pings_per_day} в день`;
+  const win = (d) => `${String(Math.floor(d.wake_start / 60)).padStart(2, '0')}:${String(d.wake_start % 60).padStart(2, '0')}–${String(Math.floor(d.wake_end / 60)).padStart(2, '0')}:${String(d.wake_end % 60).padStart(2, '0')}`;
+  $('tab-devices').innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>Устройства</h2><span class="muted small">Показано ${list.length} из ${DEVICES.length}. Пользователи анонимны: только случайный номер устройства.</span></div>
+      <div class="chips" style="margin-bottom:12px">${FILTERS.map(([k, l]) => `<button class="chip ${filter === k ? 'on' : ''}" data-filter="${k}">${l}</button>`).join('')}</div>
+      <div class="scroll"><table>
+        <tr><th>№</th><th>Платформа</th><th>Запуск</th><th>Установлено</th><th>Последний вход</th><th>Сигналы</th><th>Окно</th>
+          <th class="num">Ответы на сигналы, 7 дн.</th><th class="num">Записей</th><th class="num">Уровень свободы</th><th>Согласие</th></tr>
+        ${list.map((d) => `<tr>
+          <td><code>${esc(d.id)}</code></td>
+          <td>${PLAT[d.platform || 'unknown'] || esc(d.platform)}</td>
+          <td>${d.standalone === 1 ? '<span class="pill g">приложение</span>' : d.standalone === 0 ? '<span class="pill">браузер</span>' : '—'}</td>
+          <td>${date(d.created_at)}</td>
+          <td>${ago(d.last_seen)}</td>
+          <td>${signals(d)}</td>
+          <td class="muted">${win(d)}</td>
+          <td class="num">${d.answered_7d} из ${d.delivered_7d}</td>
+          <td class="num">${d.consent ? d.answers : '<span class="muted">—</span>'}</td>
+          <td class="num">${d.consent && d.answers ? pct(d.level, 1) : '<span class="muted">—</span>'}</td>
+          <td>${d.consent ? 'да' : '<span class="muted">нет</span>'}</td></tr>`).join('')}
+      </table></div>
+      <p class="muted small">«Записей» и «Уровень свободы» видны только у тех, кто дал согласие передавать ответы. «Ответы на сигналы» видны у всех: это только отметка «сигнал отвечен», без содержания.</p>
+    </div>`;
+  $('tab-devices').querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => { filter = b.dataset.filter; renderDevices(); }));
+}
+
+// ---------- Метод ----------
+function renderMethod() {
+  const a = DATA.answers, lv = DATA.level;
+  const tg = Object.fromEntries(DATA.targets.map((x) => [x.target, x.n]));
+  const order = ['C', 'L', 'D', 'P', 'full'];
+  $('tab-method').innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><span>Записей действий</span><b>${a.n || 0}</b><small>от ${a.users || 0} устройств · вручную: ${a.manual || 0}</small></div>
+      <div class="kpi"><span>Средний уровень свободы</span><b>${lv.users ? pct(lv.avg_level, 1) : '—'}</b><small>${lv.users ? `по ${lv.users} устройствам с 3+ записями` : 'нужно 3+ записи на устройство'}</small></div>
+      <div class="kpi"><span>Без нулей (111 / 11111)</span><b>${pct(a.full || 0, a.n)}</b><small>${a.full || 0} из ${a.n || 0} действий</small></div>
+      <div class="kpi"><span>Эустресс (D=1, C=1)</span><b>${pct(a.eustress || 0, a.n)}</b><small>${a.eustress || 0} из ${a.n || 0}</small></div>
+    </div>
+    <div class="card"><h2>Главная мишень по устройствам</h2><p class="muted small">У скольких пользователей какая мишень оказалась главной.</p>
+      ${hbars(order.map((k) => ({ label: TGT[k], n: DATA.main_targets[k] || 0 })), Object.values(DATA.main_targets).reduce((x, y) => x + y, 0), 'zero')}</div>
+    <div class="card"><h2>Мишени по действиям</h2>
+      ${hbars(order.map((k) => ({ label: TGT[k], n: tg[k] || 0 })), a.n, 'zero')}</div>
+    <div class="card"><div class="card-head"><h2>Частые коды</h2><button class="btn" id="csv">Скачать все записи (CSV)</button></div>
+      <div class="scroll"><table><tr><th>Код</th><th class="num">Записей</th><th class="num">Доля</th></tr>
+      ${DATA.top_codes.map((r) => `<tr><td><code>${esc(r.code)}</code></td><td class="num">${r.n}</td><td class="num">${pct(r.n, a.n)}</td></tr>`).join('')}</table></div></div>
+    <div class="card"><h2>По видам действий</h2><div class="scroll"><table><tr><th>Действие</th><th class="num">Записей</th><th class="num">С нулями</th><th class="num">D=0</th><th class="num">C=0</th><th class="num">L=0</th></tr>
+      ${DATA.by_category.map((r) => `<tr><td>${CAT[r.category] || esc(r.category)}</td><td class="num">${r.n}</td><td class="num">${pct(r.with_zero, r.n)}</td><td class="num">${r.d0}</td><td class="num">${r.c0}</td><td class="num">${r.l0}</td></tr>`).join('')}</table></div></div>
+    <div class="card"><h2>С кем</h2><div class="scroll"><table><tr><th>Состав</th><th>Второй</th><th class="num">Записей</th><th class="num">Не 111/11111</th><th class="num">D₂=0</th><th class="num">C₂=0</th><th class="num">«не знаю»</th></tr>
+      ${DATA.by_company.map((r) => `<tr><td>${COMP[r.company] || r.company}</td><td>${PART[r.partner] || esc(r.partner)}</td><td class="num">${r.n}</td><td class="num">${pct(r.not_full, r.n)}</td><td class="num">${r.d2_0 ?? 0}</td><td class="num">${r.c2_0 ?? 0}</td><td class="num">${r.unknown ?? 0}</td></tr>`).join('')}</table></div></div>`;
   $('csv').addEventListener('click', async () => {
-    const r = await fetch('/api/admin/answers.csv', { headers: { authorization: 'Bearer ' + token } });
+    const r = await get('/api/admin/answers.csv');
     const url = URL.createObjectURL(await r.blob());
     Object.assign(document.createElement('a'), { href: url, download: 'dcl832-answers.csv' }).click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   });
 }
+
+// ---------- Нагрузка ----------
+function renderLoad() {
+  const l = DATA.load;
+  const mb = l.db_bytes != null ? l.db_bytes / 1048576 : null;
+  const ps = Object.fromEntries(DATA.pings_30d.map((x) => [x.status, x.n]));
+  $('tab-load').innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><span>Сигналов за сутки</span><b>${l.delivered_1d}</b><small>не доставлено: <span class="${l.failed_1d ? 'warn' : ''}">${l.failed_1d}</span></small></div>
+      <div class="kpi"><span>Последняя отправка</span><b style="font-size:1.25rem">${ago(l.last_sent)}</b><small>${l.stuck ? `<span class="warn">просрочено в очереди: ${l.stuck}</span>` : '<span class="ok">очередь в порядке</span>'}</small></div>
+      <div class="kpi"><span>Новых записей за сутки</span><b>${l.answers_1d}</b><small>новых устройств: ${l.users_1d}</small></div>
+      <div class="kpi"><span>Строк в базе</span><b>${(l.users + l.pings + l.answers).toLocaleString('ru-RU')}</b><small>устройства ${l.users} · сигналы ${l.pings} · записи ${l.answers}</small></div>
+    </div>
+    <div class="card"><h2>Размер базы</h2>
+      ${mb != null ? `<div class="meter" title="${mb.toFixed(2)} МБ из 5 ГБ"><i style="width:${Math.max(0.5, (mb / 5120) * 100)}%"></i></div>
+      <p class="small">${mb.toFixed(2)} МБ из 5 ГБ бесплатного тарифа (${((mb / 5120) * 100).toFixed(3)}%)</p>` : '<p class="muted">Размер недоступен.</p>'}</div>
+    <div class="card"><h2>Сигналы за 30 дней по статусам</h2>
+      ${hbars(Object.keys(STATUS).filter((k) => ps[k]).map((k) => ({ label: STATUS[k], n: ps[k] })), null)}</div>
+    <div class="card"><h2>Лимиты бесплатного тарифа Cloudflare</h2>
+      <p class="small">100 000 запросов в сутки · 10 мс процессора на вызов · база D1: 5 ГБ, 5 млн чтений и 100 000 записей строк в сутки.
+      Для сотен пользователей запас многократный. Точные графики запросов и ошибок: <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">dash.cloudflare.com</a> → Workers &amp; Pages → dcl832 → Metrics.</p></div>`;
+}
+
+// ---------- подсказки при наведении ----------
+const tip = $('tip');
+document.addEventListener('pointermove', (e) => {
+  const el = e.target.closest('[data-tip]');
+  if (!el) { tip.style.opacity = 0; return; }
+  tip.textContent = el.dataset.tip;
+  const x = Math.min(window.innerWidth - tip.offsetWidth - 8, e.clientX + 12);
+  tip.style.left = x + 'px'; tip.style.top = (e.clientY - 36) + 'px'; tip.style.opacity = 1;
+});
+document.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
 </script>
 </body>
 </html>

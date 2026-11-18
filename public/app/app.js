@@ -1,9 +1,9 @@
 // DCL-832 — приложение. Без фреймворков: экраны рисуются строками, события — через data-act.
 import { CATEGORIES, CATEGORY_LABEL, PARTNERS, PARTNER_LABEL, PARTNER_WITH, COMPANY_LABEL, codeOf, isFull, hasZero, decode,
-  decodeCode, formatCode, BIT_NAMES, BIT_SHORT, zeroBits } from './dcl.js';
+  decodeCode, formatCode, BIT_NAMES, BIT_SHORT, zeroBits, TARGETS, TARGET_ORDER } from './dcl.js';
 import { kvGet, kvSet, put, get, all, since, putMany, clear } from './store.js';
 import { api, getCreds, setCreds, ApiError } from './api.js';
-import { summarize, byDay, heatmap, targets, windowMinutes } from './stats.js';
+import { summarize, targets, targetSummary, axes, dayParts, daysList, DAY_PARTS } from './stats.js';
 
 const $view = document.getElementById('view');
 const $tabs = document.getElementById('tabs');
@@ -122,6 +122,9 @@ async function pushSettings(patch) {
 async function syncAll() {
   if (!navigator.onLine || !(await getCreds())) return;
   try {
+    // анонимно: платформа и «установлено как приложение» — для общей статистики
+    const platform = isIOS() ? 'ios' : /Android/i.test(navigator.userAgent) ? 'android' : isMobile() ? 'other' : 'desktop';
+    await api('/api/heartbeat', { method: 'POST', body: { platform, standalone: isStandalone() ? 1 : 0 } });
     if (await kvGet('settingsDirty')) {
       const { tz, wake_start, wake_end, pings_per_day, consent } = S.settings;
       applyServerUser(await api('/api/settings', { method: 'PUT', body: { tz, wake_start, wake_end, pings_per_day, consent } }));
@@ -485,13 +488,22 @@ async function renderToday() {
 
 // ---------- «Анализ» ----------
 
-const HINTS = {
-  d1: 'Делаете без желания. Что можно делегировать, заменить или устроить иначе, чтобы результат остался, а желание появилось?',
-  c1: 'Хотите, но разум против. Где желание можно реализовать без вреда?',
-  l: 'Не позволяет обстановка. Это работа с правилами и местом, а не с чувствами.',
-  d2: 'Второй участник не хочет. Возможно, ему нужно право сказать «нет».',
-  c2: 'Второй не согласен. Стоит обсудить условия.',
-};
+const capFirst = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+function dateLabel(d) {
+  const [y, m, dd] = d.split('-').map(Number);
+  return capFirst(new Date(Date.UTC(y, m - 1, dd, 12)).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' }));
+}
+/** Полоса «без нулей / неясно / с нулями» с зазорами 2px; подпись — всегда числами рядом */
+function stack(full, unknown, zero, title) {
+  const n = full + unknown + zero;
+  if (!n) return '<div class="stack empty"></div>';
+  const seg = (v, cls) => (v ? `<i class="${cls}" style="flex:${v}"></i>` : '');
+  return `<div class="stack" role="img" aria-label="${esc(title)}" title="${esc(title)}">${seg(full, 'b1')}${seg(unknown, 'bx')}${seg(zero, 'b0')}</div>`;
+}
+/** Индикатор «k из n» */
+function meter(k, n, cls, title) {
+  return `<div class="meter" role="img" aria-label="${esc(title)}" title="${esc(title)}"><i class="${cls}" style="width:${n ? (k / n) * 100 : 0}%"></i></div>`;
+}
 
 async function renderStats() {
   const days = S.period || 3650;
@@ -499,70 +511,71 @@ async function renderStats() {
   const [answersAll, pings] = await Promise.all([since('answers', startMs), since('pings', startMs)]);
   const dates = S.period ? lastDates(S.period) : null;
   const answers = dates ? answersAll.filter((a) => a.local_date >= dates[0]) : answersAll;
-  const s = summarize(answers, pings, S.settings);
+  const s = summarize(answers, pings);
   const tg = targets(answers);
-  const daysRows = byDay(answers, lastDates(S.period === 7 ? 7 : 30));
-  const hm = heatmap(answers);
-  const wdNames = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const ts = targetSummary(answers);
+  const ax = axes(answers);
+  const parts = dayParts(answers);
+  const dayRows = daysList(answers);
+  const n = s.n;
 
-  const bucketsUsed = new Set();
-  for (let m = S.settings.wake_start, i = 0; i < windowMinutes(S.settings); i += 60, m += 60) bucketsUsed.add(Math.floor((m % 1440) / 180));
-  const buckets = [...bucketsUsed].sort((a, b) => a - b);
+  const mainCard = !n ? `<section class="card"><h2>Главная мишень</h2><p class="muted">Появится после первых ответов.</p></section>`
+    : !ts.total ? `<section class="card target"><div class="label">Главная мишень</div><div class="t-name green">Нулей нет</div><p>Все отмеченные действия согласованы: хочу, согласен, можно.</p></section>`
+    : (() => {
+      const t = TARGETS[ts.main];
+      const others = TARGET_ORDER.filter((k) => ts.counts[k] && k !== ts.main);
+      return `<section class="card target">
+        <div class="label">Главная мишень</div>
+        <div class="t-name">${t.name}</div>
+        <div class="t-count"><b>${ts.counts[ts.main]}</b> из ${n} ${ofActions(n)}</div>
+        <p>${t.desc}</p>
+        <p class="hint">${t.advice}</p>
+        ${others.length ? `<ul class="t-others">${others.map((k) => `<li><span>${TARGETS[k].name}</span>${meter(ts.counts[k], n, 'b0', `${TARGETS[k].name}: ${ts.counts[k]} из ${n}`)}<b>${ts.counts[k]}</b></li>`).join('')}</ul>` : ''}
+      </section>`;
+    })();
+
+  const axisRows = [['d1', 'D', 'хочу'], ['c1', 'C', 'согласен'], ['l', 'L', 'можно']].map(([k, letter, name]) => `
+    <li><span class="bit">${letter}</span><span class="name">${name}</span>${meter(ax[k], n, 'b1', `${name}: «да» в ${ax[k]} из ${n}`)}<b>${ax[k]} из ${n}</b></li>`).join('');
 
   const catRows = tg.byCategory.slice(0, 6).map((g) => `
     <li><div class="row-head"><b>${esc(g.label)}</b><span>${g.zero} из ${g.n} с нулями</span></div>
-      <div class="bar thin"><i class="b0" style="width:${(g.zero / g.n) * 100}%"></i></div>
+      ${stack(g.full, g.n - g.full - g.zero, g.zero, `${g.label}: без нулей ${g.full}, с нулями ${g.zero}`)}
       ${g.top ? `<small>чаще всего: <b>${BIT_NAMES[g.top]}</b> (${BIT_SHORT[g.top]}=0)</small>` : '<small>нулей нет</small>'}</li>`).join('');
   const partRows = tg.byPartner.map((g) => `
     <li><div class="row-head"><b>${esc(PARTNER_LABEL[g.key] || g.key)}</b><span>${g.n - g.full} из ${g.n} не 11111</span></div>
-      <div class="bar thin"><i class="b0" style="width:${(g.zero / g.n) * 100}%"></i><i class="bx" style="width:${(Math.max(0, g.n - g.full - g.zero) / g.n) * 100}%"></i></div>
+      ${stack(g.full, g.n - g.full - g.zero, g.zero, `${PARTNER_LABEL[g.key] || g.key}: 11111 — ${g.full}, с нулями — ${g.zero}`)}
       <small>${g.top ? `чаще всего: <b>${BIT_NAMES[g.top]}</b>` : 'нулей нет'}${g.unknown ? ` · не знаю о втором: ${g.unknown}` : ''}</small></li>`).join('');
-  const maxBit = Math.max(1, ...Object.values(tg.bits));
-  const bitOrder = ['d1', 'c1', 'l', 'd2', 'c2'].filter((b) => b === 'd1' || b === 'c1' || b === 'l' || tg.pairs);
-  const topBitKey = bitOrder.reduce((best, b) => (tg.bits[b] > (tg.bits[best] || 0) ? b : best), null);
+
+  const partRowsTime = DAY_PARTS.filter(([k]) => parts[k].n).map(([k, name, hours]) => {
+    const p = parts[k];
+    return `<li><div class="row-head"><b>${name} <span class="muted">${hours}</span></b><span>${p.full} без нулей · ${p.zero} с нулями</span></div>
+      ${stack(p.full, p.n - p.full - p.zero, p.zero, `${name}: без нулей ${p.full}, с нулями ${p.zero}`)}</li>`;
+  }).join('');
+
+  const dayList = dayRows.map((d) => `
+    <li><div class="row-head"><b>${dateLabel(d.date)}</b><span>${d.full} из ${d.n} без нулей</span></div>
+      ${stack(d.full, d.n - d.full - d.zero, d.zero, `${dateLabel(d.date)}: без нулей ${d.full}, с нулями ${d.zero}`)}</li>`).join('');
 
   $view.innerHTML = `
     <header class="top"><h1>Анализ</h1></header>
     <div class="seg period">${[[7, '7 дней'], [30, '30 дней'], [0, 'Всё время']].map(([v, l]) => `<button class="${S.period === v ? 'on' : ''}" data-act="period" data-v="${v}">${l}</button>`).join('')}</div>
     ${summaryCards(s, true)}
     ${s.delivered ? `<p class="muted center">Сигналов: ${s.delivered} · пропущено: ${s.missed}</p>` : ''}
+    ${mainCard}
+    ${n ? `<section class="card"><h2>Три оси</h2><p class="muted small-note">Сколько раз вы ответили «да» на каждый вопрос.</p><ul class="axes">${axisRows}</ul></section>` : ''}
     <section class="card">
-      <h2>По дням</h2>
-      <div class="days ${daysRows.length > 10 ? 'dense' : ''}">${daysRows.map((d) => {
-        const h = (v) => (d.n ? (v / d.n) * 100 : 0);
-        const [y, m, dd] = d.date.split('-');
-        return `<div class="day" title="${dd}.${m}: ${d.n} ответов"><div class="col">${d.n ? `<i class="b0" style="height:${h(d.zero)}%"></i><i class="bx" style="height:${h(d.n - d.full - d.zero)}%"></i><i class="b1" style="height:${h(d.full)}%"></i>` : ''}</div><small>${daysRows.length > 10 ? (+dd % 5 === 0 ? +dd : '') : wdNames[localParts(Date.UTC(+y, m - 1, +dd, 12)).weekday]}</small></div>`;
-      }).join('')}</div>
-      <div class="legend"><span><i class="dot b1"></i>без нулей</span><span><i class="dot b0"></i>с нулями</span><span><i class="dot bx"></i>неясно</span></div>
-    </section>
-    <section class="card">
-      <h2>Когда копятся нули</h2>
-      <div class="heat" style="grid-template-columns: 2.2em repeat(${buckets.length}, 1fr)">
-        <span></span>${buckets.map((b) => `<small>${b * 3}–${b * 3 + 3}</small>`).join('')}
-        ${[1, 2, 3, 4, 5, 6, 7].map((wd) => `<small>${wdNames[wd]}</small>${buckets.map((b) => {
-          const c = hm[`${wd}:${b}`];
-          if (!c) return '<i class="cell none"></i>';
-          return `<i class="cell" style="--z:${c.zero / c.n}" title="${c.zero} из ${c.n} с нулями">${c.n}</i>`;
-        }).join('')}`).join('')}
-      </div>
-      <p class="muted small-note">Цифра — число ответов, цвет — доля ответов с нулями.</p>
-    </section>
-    <section class="card">
-      <h2>Мишени: где нули</h2>
+      <h2>Где нули</h2>
       ${catRows ? `<ul class="rows">${catRows}</ul>` : '<p class="muted">Появятся после первых ответов.</p>'}
     </section>
     ${tg.pairs ? `<section class="card"><h2>С кем</h2><ul class="rows">${partRows}</ul>
       ${tg.unknown ? `<p class="hint">В ${tg.unknown} из ${tg.pairs} совместных действий вы не знали, хочет ли второй. Можно просто спросить: «Хочешь?»</p>` : ''}</section>` : ''}
-    <section class="card">
-      <h2>Какой разряд чаще ноль</h2>
-      <ul class="bits-bars">${bitOrder.map((b) => `<li><span class="bit">${BIT_SHORT[b]}</span><span class="name">${BIT_NAMES[b]}</span>
-        <span class="bar thin"><i class="b0" style="width:${(tg.bits[b] / maxBit) * 100}%"></i></span><b>${tg.bits[b]}</b></li>`).join('')}</ul>
-      ${topBitKey && tg.bits[topBitKey] ? `<p class="hint">${HINTS[topBitKey]}</p>` : ''}
-    </section>
+    ${partRowsTime ? `<section class="card"><h2>Когда нули</h2><ul class="rows">${partRowsTime}</ul>
+      ${n < 10 ? '<p class="muted small-note">Картина станет надёжнее после 10–15 ответов.</p>' : ''}</section>` : ''}
+    ${dayList ? `<section class="card"><h2>По дням</h2><ul class="rows">${dayList}</ul>
+      <div class="legend"><span><i class="dot b1"></i>без нулей</span><span><i class="dot b0"></i>с нулями</span>${s.unknown ? '<span><i class="dot bx"></i>неясно</span>' : ''}</div></section>` : ''}
     ${tg.topCodes.length ? `<section class="card"><h2>Частые коды</h2><ul class="codes">${tg.topCodes.map((c) => `
       <li><span class="code ${isFull(c.code) ? 'full' : hasZero(c.code) ? 'zero' : 'unk'}">${formatCode(c.code)}</span><span>${esc(decodeCode(c.code))}</span><b>×${c.n}</b></li>`).join('')}</ul></section>` : ''}
-    <p class="muted small-note center">Цель DCL-терапии — заменить действия с нулями так, чтобы результат сохранился, а действия стали 111 или 11111.<br>Это инструмент самонаблюдения, не медицинская диагностика.</p>
-    <button class="fab" data-act="go" data-h="#new" aria-label="Записать действие">+</button>`;
+    <p class="muted small-note center">Цель DCL-терапии — заменить действия с нулями так, чтобы результат сохранился, а действия стали 111 или 11111.<br>Это инструмент самонаблюдения, не медицинская диагностика.</p>`;
 }
 
 // ---------- «Настройки» ----------
