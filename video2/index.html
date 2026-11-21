@@ -52,7 +52,7 @@ const T = {
 
 // ===================== помощники =====================
 const C_ = { ink: '#1c2220', muted: '#56605b', paper: '#f6f4ef', card: '#fbfaf6', line: '#e3dfd6', floor: '#ece8df',
-  one: '#0f7a4a', oneSoft: '#dcefe5', zero: '#e5824f', zeroInk: '#a4461b', zeroSoft: '#fbe5d8', shirt: '#2f6f8f', shirt2: '#b5654a' };
+  one: '#0f7a4a', oneSoft: '#dcefe5', zero: '#e5824f', zeroInk: '#a4461b', zeroSoft: '#fbe5d8', shirt: '#2f6f8f', dress: '#d8679a', hairW: '#4a2c22' };
 const NS = 'http://www.w3.org/2000/svg';
 const SVG = document.getElementById('svg');
 const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
@@ -101,6 +101,27 @@ function person(g, pr, x, y, k, shirt = C_.shirt, hair = '#2b2f33') {
   box(g, pr, x + u * 0.25, y + u * 0.1, u * 6.5, u * 1.3, u * 1.1, u * 1.4, '#e7c6a5');
   box(g, pr, x + u * 0.15, y + u * 0.05, u * 7.6, u * 1.5, u * 1.2, u * 0.4, hair);
   return pr.P(x + u, y + u, u * 9.5); // точка над головой
+}
+// Женщина: платье, юбка, длинные волосы, спадающие на плечи
+function woman(g, pr, x, y, k, dress = C_.dress, hair = C_.hairW) {
+  const u = 0.06 * k;
+  const c = pr.P(x + u, y + u, 0);
+  el('ellipse', { cx: c[0], cy: c[1], rx: 0.3 * pr.S * k * 0.42, ry: 0.11 * pr.S * k * 0.42, fill: C_.ink, opacity: 0.12 }, g);
+  box(g, pr, x + u * 0.15, y + u * 0.3, 0, u * 0.55, u * 0.6, u * 2.2, '#3a4550');
+  box(g, pr, x + u * 1.15, y + u * 0.3, 0, u * 0.55, u * 0.6, u * 2.2, '#3a4550');
+  box(g, pr, x - u * 0.35, y - u * 0.1, u * 1.9, u * 2.5, u * 1.4, u * 1.5, shade(dress, -0.1));
+  box(g, pr, x - u * 0.1, y + u * 0.05, u * 3.2, u * 2.0, u * 1.1, u * 3.2, dress);
+  box(g, pr, x - u * 0.6, y + u * 0.3, u * 3.6, u * 0.5, u * 0.6, u * 2.6, dress);
+  box(g, pr, x + u * 1.9, y + u * 0.3, u * 3.6, u * 0.5, u * 0.6, u * 2.6, dress);
+  const strand = (sx) => {
+    box(g, pr, sx, y + u * 1.12, u * 4.9, u * 0.25, u * 0.23, u * 1.5, hair);
+    box(g, pr, sx, y + u * 0.05, u * 6.4, u * 0.25, u * 1.3, u * 1.45, hair);
+  };
+  strand(x);
+  box(g, pr, x + u * 0.25, y + u * 0.1, u * 6.5, u * 1.3, u * 1.1, u * 1.4, '#e7c6a5');
+  strand(x + u * 1.55);
+  box(g, pr, x, y - u * 0.05, u * 7.7, u * 1.8, u * 1.4, u * 0.5, hair);
+  return pr.P(x + u, y + u, u * 9.5);
 }
 function codeText(g, x, y, code, size = 44, anchor = 'middle') {
   const t = el('text', { x, y, 'font-size': size, 'font-weight': 800, class: 'mono', 'text-anchor': anchor }, g);
@@ -200,7 +221,7 @@ scene(8.7, 18.25, 'Жизнь <span class="g">на пятёрку</span>', (g) =
   el('path', { d: `M ${lc[0]} ${lc[1] + 18} c -40 -26 -30 -58 0 -40 c 30 -18 40 14 0 40 z`, fill: '#e5824f' }, lap);
   items.push([lap, T.work, pr.P(0.23, 0.7, 0.1)]);
   const love = el('g', {}, g);
-  const h2 = person(love, pr, 1.12, 0.22, 2.0, C_.shirt2, '#5a3a2a');
+  const h2 = woman(love, pr, 1.12, 0.22, 2.0);
   el('path', { d: `M ${h2[0] - 70} ${h2[1] - 20} c -30 -22 -24 -48 0 -32 c 24 -16 30 12 0 32 z`, fill: C_.zero }, love);
   items.push([love, T.love, pr.P(1.18, 0.3, 0.2)]);
   const hero = el('g', {}, g);
@@ -289,7 +310,7 @@ scene(32.4, 41.85, 'Ищем <span class="g">виноватых</span>', (g) => 
   const pr = proj([220, 1180], 320);
   const ppl = el('g', {}, g);
   person(ppl, pr, 0.1, 0.1, 2.3, C_.shirt);
-  person(ppl, pr, 1.25, 0.05, 2.2, C_.shirt2, '#5a3a2a');
+  woman(ppl, pr, 1.25, 0.05, 2.2);
   const zap = el('path', { d: 'M 560 900 l -40 70 l 50 0 l -44 90 l 110 -120 l -54 0 l 40 -60 z', fill: C_.zero }, g);
   const bs = [
     [bubble(g, 70, 440, 470, ['Со мной что-то не так'], 'left'), T.b1, 300, 480],
@@ -564,7 +585,7 @@ scene(112.2, 120.2, 'Хочешь жить<br>на <span class="g">пятёрк�
   const pr = proj([200, 1060], 280);
   const g5 = grade(g, 540, 600, 5, C_.one, 110);
   const ppl = el('g', {}, g);
-  person(ppl, pr, 0.0, 0.0, 1.8, C_.shirt); person(ppl, pr, 0.7, -0.1, 1.7, C_.shirt2, '#5a3a2a');
+  person(ppl, pr, 0.0, 0.0, 1.8, C_.shirt); woman(ppl, pr, 0.7, -0.1, 1.7);
   const cross = el('g', {}, g);
   [[300, 760], [470, 760]].forEach(([x, y]) => { el('circle', { cx: x, cy: y, r: 40, fill: C_.card, stroke: C_.zeroInk, 'stroke-width': 6 }, cross); txt(cross, x, y + 15, '?', { 'font-size': 44, 'font-weight': 800, fill: C_.zeroInk, 'text-anchor': 'middle' }); el('line', { x1: x - 52, y1: y + 52, x2: x + 52, y2: y - 52, stroke: C_.zeroInk, 'stroke-width': 8, 'stroke-linecap': 'round' }, cross); });
   const prA = proj([600, 1120], 220);
