@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>DCL-832 — ролик 3: спроектируй жизнь</title>
+<style>
+  @font-face { font-family: 'InterV'; src: url('../video/fonts/Inter[opsz,wght].ttf') format('truetype'); font-weight: 100 900; }
+  @font-face { font-family: 'MonoV'; src: url('../video/fonts/JetBrainsMono[wght].ttf') format('truetype'); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #f6f4ef; }
+  body { font-family: 'InterV', 'Inter', system-ui, sans-serif; color: #1c2220; -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: radial-gradient(1100px 900px at 50% 40%, #fbfaf6 0%, #f6f4ef 65%); }
+  svg { position: absolute; left: 0; top: 0; }
+  svg text { font-family: 'InterV', 'Inter', sans-serif; }
+  svg .mono { font-family: 'MonoV', 'JetBrains Mono', monospace; }
+  #brand { position: absolute; left: 64px; top: 72px; font-weight: 800; font-size: 34px; letter-spacing: .06em; color: #0f7a4a; }
+  .title { position: absolute; left: 64px; right: 64px; top: 170px; font-size: 76px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.06; }
+  .title .g { color: #0f7a4a; }
+  .title small { display: block; font-size: 36px; font-weight: 500; color: #56605b; letter-spacing: 0; margin-top: 14px; }
+  #cap { position: absolute; left: 70px; right: 70px; top: 1500px; text-align: center; font-size: 58px; font-weight: 800; line-height: 1.22; letter-spacing: -0.01em; }
+  #cap span { color: rgba(28,34,32,.3); }
+  #cap span.on { color: #1c2220; }
+  #cap span.cur { color: #0f7a4a; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920"></svg>
+  <div id="brand">DCL-832</div>
+  <div id="titles"></div>
+  <div id="cap"></div>
+</div>
+<script>
+// ===================== тайминги озвучки (секунды) =====================
+const T = {
+  q: 2.22,
+  s2: 3.74, self: 7.84, c1: 9.86, c2: 11.42, c3: 13.0, c4: 14.4, c5: 15.88, fit: 16.3,
+  s3: 17.4, adapt: 21.12, change: 23.16, build: 24.5, rebuild: 25.22, improve: 26.2, open: 27.1,
+  s4: 28.64, pop: 29.74, courses: 30.38, happier: 33.92, but: 36.44, change2: 36.64,
+  s5: 38.92, econ: 40.42, success: 41.68, notall: 43.3, compet: 44.62, chance: 46.38, small: 48.7,
+  s6: 49.92, unite: 51.06, two: 51.62,
+  s7: 52.66, earn: 53.72, oneday: 55.06, accept: 56.52, acceptW: 57.64,
+  s8: 60.3, eng: 61.14, acts: 61.94, system: 63.28, pleasure: 65.92, now: 67.5,
+  s9: 68.9, q1: 71.34, q2: 72.28, q3: 73.26, week: 74.2, rebuild2: 76.14,
+  s10: 78.26, dcl: 80.14, wb: 81.08,
+  s11: 82.9, unhappy: 84.16, design: 85.16, life: 86.3,
+  fin: 88.9, END: 92.5,
+};
+
+// ===================== помощники =====================
+const C_ = { ink: '#1c2220', muted: '#56605b', paper: '#f6f4ef', card: '#fbfaf6', line: '#e3dfd6', floor: '#ece8df',
+  one: '#0f7a4a', oneSoft: '#dcefe5', zero: '#e5824f', zeroInk: '#a4461b', zeroSoft: '#fbe5d8', shirt: '#2f6f8f', dress: '#d8679a', hairW: '#4a2c22' };
+const NS = 'http://www.w3.org/2000/svg';
+const SVG = document.getElementById('svg');
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+const txt = (parent, x, y, s, attrs = {}) => { const t = el('text', { x, y, ...attrs }, parent); t.textContent = s; return t; };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const back = (x) => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const inn = (t, a, d = 0.45) => ease((t - a) / d);
+const vis = (t, a, b = 1e9, fi = 0.45, fo = 0.35) => Math.min(inn(t, a, fi), 1 - ease((t - b) / fo));
+const lerp = (a, b, k) => a + (b - a) * k;
+function setOp(e, o) { e.setAttribute('opacity', o.toFixed(3)); e.style.display = o < 0.003 ? 'none' : ''; }
+/** появление: прозрачность + подъём + «пружинка» масштаба вокруг (cx, cy) */
+function pop(e, t, a, cx, cy, { b = 1e9, dy = 0, spring = true, d = 0.5 } = {}) {
+  const o = vis(t, a, b, d);
+  const p = spring ? back((t - a) / (d + 0.1)) : inn(t, a, d);
+  const s = spring ? 0.4 + 0.6 * p : 1;
+  const y = (1 - inn(t, a, d)) * dy;
+  e.setAttribute('transform', `translate(${cx} ${cy + y}) scale(${s.toFixed(4)}) translate(${-cx} ${-cy})`);
+  setOp(e, o);
+}
+function shade(hex, k) { const n = parseInt(hex.slice(1), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k))); return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join(''); }
+
+// аксонометрия (оси D, C, L не сливают углы 000 и 111)
+const EX = [Math.cos(14 * Math.PI / 180), Math.sin(14 * Math.PI / 180)];
+const EY = [-Math.cos(58 * Math.PI / 180), Math.sin(58 * Math.PI / 180)];
+const EZ = [0, -0.78];
+function proj(O, S) {
+  const P = (x, y, z) => [O[0] + (x * EX[0] + y * EY[0] + z * EZ[0]) * S, O[1] + (x * EX[1] + y * EY[1] + z * EZ[1]) * S];
+  const pts = (arr) => arr.map((p) => P(...p).map((v) => v.toFixed(1)).join(',')).join(' ');
+  return { P, pts, S };
+}
+function box(g, pr, x, y, z, w, d, h, color) {
+  el('polygon', { points: pr.pts([[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]]), fill: shade(color, -0.12) }, g);
+  el('polygon', { points: pr.pts([[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]]), fill: shade(color, -0.28) }, g);
+  el('polygon', { points: pr.pts([[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]]), fill: shade(color, 0.18) }, g);
+}
+function person(g, pr, x, y, k, shirt = C_.shirt, hair = '#2b2f33') {
+  const u = 0.06 * k;
+  const c = pr.P(x + u, y + u, 0);
+  el('ellipse', { cx: c[0], cy: c[1], rx: 0.3 * pr.S * k * 0.42, ry: 0.11 * pr.S * k * 0.42, fill: C_.ink, opacity: 0.12 }, g);
+  box(g, pr, x, y + u * 0.2, 0, u * 0.7, u * 0.8, u * 3.2, '#3a4550');
+  box(g, pr, x + u * 1.1, y + u * 0.2, 0, u * 0.7, u * 0.8, u * 3.2, '#3a4550');
+  box(g, pr, x - u * 0.2, y, u * 3.2, u * 2.2, u * 1.2, u * 3.2, shirt);
+  box(g, pr, x - u * 0.75, y + u * 0.25, u * 3.6, u * 0.55, u * 0.7, u * 2.6, shirt);
+  box(g, pr, x + u * 2.0, y + u * 0.25, u * 3.6, u * 0.55, u * 0.7, u * 2.6, shirt);
+  box(g, pr, x + u * 0.25, y + u * 0.1, u * 6.5, u * 1.3, u * 1.1, u * 1.4, '#e7c6a5');
+  box(g, pr, x + u * 0.15, y + u * 0.05, u * 7.6, u * 1.5, u * 1.2, u * 0.4, hair);
+  return pr.P(x + u, y + u, u * 9.5); // точка над головой
+}
+// Женщина: платье, юбка, длинные волосы, спадающие на плечи
+function woman(g, pr, x, y, k, dress = C_.dress, hair = C_.hairW) {
+  const u = 0.06 * k;
+  const c = pr.P(x + u, y + u, 0);
+  el('ellipse', { cx: c[0], cy: c[1], rx: 0.3 * pr.S * k * 0.42, ry: 0.11 * pr.S * k * 0.42, fill: C_.ink, opacity: 0.12 }, g);
+  box(g, pr, x + u * 0.15, y + u * 0.3, 0, u * 0.55, u * 0.6, u * 2.2, '#3a4550');
+  box(g, pr, x + u * 1.15, y + u * 0.3, 0, u * 0.55, u * 0.6, u * 2.2, '#3a4550');
+  box(g, pr, x - u * 0.35, y - u * 0.1, u * 1.9, u * 2.5, u * 1.4, u * 1.5, shade(dress, -0.1));
+  box(g, pr, x - u * 0.1, y + u * 0.05, u * 3.2, u * 2.0, u * 1.1, u * 3.2, dress);
+  box(g, pr, x - u * 0.6, y + u * 0.3, u * 3.6, u * 0.5, u * 0.6, u * 2.6, dress);
+  box(g, pr, x + u * 1.9, y + u * 0.3, u * 3.6, u * 0.5, u * 0.6, u * 2.6, dress);
+  const strand = (sx) => {
+    box(g, pr, sx, y + u * 1.12, u * 4.9, u * 0.25, u * 0.23, u * 1.5, hair);
+    box(g, pr, sx, y + u * 0.05, u * 6.4, u * 0.25, u * 1.3, u * 1.45, hair);
+  };
+  strand(x);
+  box(g, pr, x + u * 0.25, y + u * 0.1, u * 6.5, u * 1.3, u * 1.1, u * 1.4, '#e7c6a5');
+  strand(x + u * 1.55);
+  box(g, pr, x, y - u * 0.05, u * 7.7, u * 1.8, u * 1.4, u * 0.5, hair);
+  return pr.P(x + u, y + u, u * 9.5);
+}
+function codeText(g, x, y, code, size = 44, anchor = 'middle') {
+  const t = el('text', { x, y, 'font-size': size, 'font-weight': 800, class: 'mono', 'text-anchor': anchor }, g);
+  for (const ch of code) { const s = el('tspan', { fill: ch === '0' ? C_.zeroInk : ch === 'x' ? '#8a9096' : C_.one }, t); s.textContent = ch; }
+  return t;
+}
+function badgeCode(g, cx, cy, code, full) {
+  const b = el('g', {}, g);
+  const w = code.length * 32 + 34;
+  if (full) el('circle', { cx, cy, r: 72, fill: C_.one, opacity: 0.15 }, b);
+  el('rect', { x: cx - w / 2, y: cy - 31, width: w, height: 62, rx: 20, fill: full ? C_.one : C_.card, stroke: full ? 'none' : C_.line, 'stroke-width': 3 }, b);
+  if (full) txt(b, cx, cy + 15, code, { 'font-size': 42, 'font-weight': 800, class: 'mono', 'text-anchor': 'middle', fill: '#f3f1ea' });
+  else codeText(b, cx, cy + 15, code, 42);
+  return b;
+}
+function grade(g, cx, cy, n, color, r = 70) {
+  const b = el('g', {}, g);
+  el('circle', { cx, cy, r, fill: C_.card, stroke: color, 'stroke-width': 8 }, b);
+  txt(b, cx, cy + r * 0.38, String(n), { 'font-size': r * 1.12, 'font-weight': 800, fill: color, 'text-anchor': 'middle' });
+  return b;
+}
+function bubble(g, x, y, w, lines, tail = 'left', fill = C_.card, color = C_.ink, size = 34) {
+  const b = el('g', {}, g);
+  const h = lines.length * size * 1.3 + 40;
+  const tx = tail === 'left' ? x + 50 : x + w - 50;
+  el('path', { d: `M ${tx - 18} ${y + h - 2} L ${tx + (tail === 'left' ? -30 : 30)} ${y + h + 40} L ${tx + 22} ${y + h - 2} Z`, fill, stroke: C_.line, 'stroke-width': 3 }, b);
+  el('rect', { x, y, width: w, height: h, rx: 26, fill, stroke: C_.line, 'stroke-width': 3 }, b);
+  el('rect', { x: tx - 16, y: y + h - 6, width: 36, height: 8, fill }, b);
+  lines.forEach((l, i) => txt(b, x + 26, y + 20 + size * 1.05 + i * size * 1.3, l, { 'font-size': size, 'font-weight': 700, fill: color }));
+  return b;
+}
+function pill(g, cx, cy, label, fill, color, size = 28) {
+  const b = el('g', {}, g);
+  const w = label.length * size * 0.58 + 40;
+  el('rect', { x: cx - w / 2, y: cy - size, width: w, height: size * 2, rx: size, fill }, b);
+  txt(b, cx, cy + size * 0.36, label, { 'font-size': size, 'font-weight': 700, fill: color, 'text-anchor': 'middle' });
+  return b;
+}
+function seeded(seed) { let a = seed; return () => (a = (a * 9301 + 49297) % 233280) / 233280; }
+
+// ---------- куб DCL ----------
+function buildCube(g, O = [470, 930], S = 360) {
+  const pr = proj(O, S);
+  const parts = { pr };
+  el('polygon', { points: pr.pts([[-0.35, -0.35, 0], [1.6, -0.35, 0], [1.6, 1.6, 0], [-0.35, 1.6, 0]]), fill: C_.floor }, g);
+  const V = []; for (const x of [0, 1]) for (const y of [0, 1]) for (const z of [0, 1]) V.push([x, y, z]);
+  const edges = el('g', {}, g);
+  const backV = (v) => v[0] === 0 && v[1] === 0;
+  for (const a of V) for (const b of V) {
+    const d = a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0);
+    if (d === 1 && a.join() < b.join()) { const A = pr.P(...a), B = pr.P(...b); const dashed = (backV(a) && backV(b)) || (a[2] === 0 && b[2] === 0 && (backV(a) || backV(b)));
+      el('line', { x1: A[0], y1: A[1], x2: B[0], y2: B[1], stroke: '#9aa39e', 'stroke-width': dashed ? 3 : 5, 'stroke-dasharray': dashed ? '12 12' : 'none', 'stroke-linecap': 'round' }, edges); }
+  }
+  parts.edges = edges;
+  parts.glow = el('circle', { cx: pr.P(1, 1, 1)[0], cy: pr.P(1, 1, 1)[1], r: 150, fill: C_.one, opacity: 0.1 }, g);
+  parts.axes = [[1.3, 0, 0, 'D', 'хочу', 14, 10], [0, 1.3, 0, 'C', 'согласен', -30, 50], [0, 0, 1.25, 'L', 'можно', 18, -10]].map(([x, y, z, L, sub, dx, dy]) => {
+    const a = pr.P(0, 0, 0), b = pr.P(x, y, z);
+    const ax = el('g', {}, g);
+    const line = el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: C_.one, 'stroke-width': 7, 'stroke-linecap': 'round' }, ax);
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]); line.setAttribute('stroke-dasharray', `${len} ${len}`);
+    const lab = el('g', {}, ax);
+    txt(lab, b[0] + dx, b[1] + dy, L, { 'font-size': 52, 'font-weight': 800, fill: C_.one, class: 'mono' });
+    txt(lab, b[0] + dx, b[1] + dy + 38, sub, { 'font-size': 30, fill: C_.muted });
+    return { ax, line, len, lab };
+  });
+  const OFF = { '000': [-95, 20], '100': [40, 80], '010': [-95, 30], '110': [70, 60], '001': [-95, -20], '101': [95, -30], '011': [-100, -10], '111': [95, -10] };
+  parts.corner = {};
+  parts.badges = V.map((v) => { const code = v.join(''); const p = pr.P(...v); const o = OFF[code]; parts.corner[code] = p; return { code, b: badgeCode(g, p[0] + o[0], p[1] + o[1], code, code === '111'), x: p[0] + o[0], y: p[1] + o[1] }; });
+  parts.dots = el('g', {}, g);
+  return parts;
+}
+// облака точек недели: [код, число точек, радиус, цвет]
+const CLOUD = [['011', 22, 95, C_.zero], ['101', 13, 70, C_.zero], ['001', 5, 45, C_.zero], ['111', 9, 60, C_.one]];
+function makeDots(parts, seed) {
+  const R = seeded(seed); const dots = [];
+  CLOUD.forEach(([code, n, r, color]) => { const c = parts.corner[code]; for (let i = 0; i < n; i++) { const a = R() * Math.PI * 2, rr = Math.sqrt(R()) * r;
+    const d = el('circle', { r: (9 + R() * 5).toFixed(1), fill: color, opacity: 0.88 }, parts.dots);
+    dots.push({ d, code, x: c[0] + Math.cos(a) * rr, y: c[1] + Math.sin(a) * rr * 0.7, delay: R(), color }); } });
+  return dots;
+}
+
+// ===================== помощники ролика 3 =====================
+const DEFS = el('defs', {}, SVG);
+let FID = 0;
+/** обесцвечивание группы: возвращает функцию k ∈ [0, 1] → насколько серым */
+function grayer(g) {
+  const id = 'gf' + (FID++);
+  const f = el('filter', { id, x: '-20%', y: '-20%', width: '140%', height: '140%', 'color-interpolation-filters': 'sRGB' }, DEFS);
+  const m = el('feColorMatrix', { type: 'saturate', values: '1' }, f);
+  g.setAttribute('filter', `url(#${id})`);
+  return (k) => m.setAttribute('values', (1 - clamp(k)).toFixed(3));
+}
+function wrenchIcon(g) { return el('path', { d: 'M 0 0 l 120 -120 a 40 40 0 1 1 40 40 l -120 120 z M 132 -132 l 24 24', fill: '#7a8288', stroke: '#5b6368', 'stroke-width': 6 }, g); }
+const BW = 0.3, BH = 0.34, BD = 0.3; // блок стены «система»
+/** стена из блоков; порядок отрисовки — по колонке, затем по ряду */
+function wall(g, pr, cells, color = '#c9cfcb', onColor = null) {
+  return cells.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(([c, r]) => {
+    const w = el('g', {}, g);
+    const off = el('g', {}, w); box(off, pr, c * BW, 0, r * BH, BW - 0.02, BD, BH - 0.02, color);
+    let on = null; if (onColor) { on = el('g', {}, w); box(on, pr, c * BW, 0, r * BH, BW - 0.02, BD, BH - 0.02, onColor); setOp(on, 0); }
+    return { c, r, w, off, on, p: pr.P(c * BW + BW / 2, BD / 2, r * BH + BH / 2) };
+  });
+}
+function wallCells(skip = []) { const out = []; for (let c = 0; c < 6; c++) for (let r = 0; r < 3; r++) if (!skip.some(([a, b]) => a === c && b === r)) out.push([c, r]); return out; }
+const SLOT = [[2, 0], [2, 1]];
+function floorPoly(g, pr, x0, y0, x1, y1) { return el('polygon', { points: pr.pts([[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]]), fill: C_.floor }, g); }
+function pillL(g, x, cy, label, fill, color, size = 28) { const w = label.length * size * 0.58 + 40; return [pill(g, x + w / 2, cy, label, fill, color, size), x + w / 2]; }
+function miniBadge(g, cx, cy, code) {
+  const b = el('g', {}, g);
+  el('rect', { x: cx - 50, y: cy - 24, width: 100, height: 48, rx: 16, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, b);
+  codeText(b, cx, cy + 11, code, 32);
+  return b;
+}
+const cssT = (e, x, y, sx = 1, sy = sx, ox = 0, oy = 0) => e.setAttribute('transform', `translate(${(ox + x).toFixed(1)} ${(oy + y).toFixed(1)}) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(${(-ox).toFixed(1)} ${(-oy).toFixed(1)})`);
+/** «Жизнь на пятёрку» из ролика 2: площадка, пара, ноутбук, монеты, чемодан, солнце */
+function lifeScene(g, pr, sun) {
+  box(g, pr, 0, 0, -0.1, 1.5, 1.5, 0.1, '#e3ddd0');
+  box(g, pr, 0.06, 0.62, 0, 0.34, 0.24, 0.02, '#4a5560');
+  el('polygon', { points: pr.pts([[0.06, 0.62, 0.02], [0.4, 0.62, 0.02], [0.4, 0.62, 0.26], [0.06, 0.62, 0.26]]), fill: '#2f3a44' }, g);
+  const lc = pr.P(0.23, 0.62, 0.14);
+  el('path', { d: `M ${lc[0]} ${lc[1] + 18} c -40 -26 -30 -58 0 -40 c 30 -18 40 14 0 40 z`, fill: C_.zero }, g);
+  const h2 = woman(g, pr, 1.12, 0.22, 2.0);
+  el('path', { d: `M ${h2[0] - 70} ${h2[1] - 20} c -30 -22 -24 -48 0 -32 c 24 -16 30 12 0 32 z`, fill: C_.zero }, g);
+  const head = person(g, pr, 0.74, 0.6, 2.3, C_.shirt);
+  for (let i = 0; i < 5; i++) { const c = pr.P(0.2, 1.25, 0.03 * i); el('ellipse', { cx: c[0], cy: c[1], rx: 46, ry: 20, fill: '#d9a62e', stroke: '#b9871a', 'stroke-width': 3 }, g); }
+  const cc = pr.P(0.2, 1.25, 0.15); txt(g, cc[0], cc[1] - 6, '₽', { 'font-size': 40, 'font-weight': 800, fill: '#8a6110', 'text-anchor': 'middle' });
+  box(g, pr, 1.1, 1.1, 0, 0.26, 0.14, 0.3, '#3f7f9f');
+  const hb = pr.P(1.23, 1.17, 0.3);
+  el('path', { d: `M ${hb[0] - 22} ${hb[1]} v -22 h 44 v 22`, stroke: '#2a5a72', 'stroke-width': 8, fill: 'none' }, g);
+  el('circle', { cx: sun[0], cy: sun[1], r: 62, fill: '#f2c14e' }, g);
+  for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; el('line', { x1: sun[0] + Math.cos(a) * 82, y1: sun[1] + Math.sin(a) * 82, x2: sun[0] + Math.cos(a) * 112, y2: sun[1] + Math.sin(a) * 112, stroke: '#f2c14e', 'stroke-width': 10, 'stroke-linecap': 'round' }, g); }
+  grade(g, head[0] - 10, head[1] - 80, 5, C_.one, 58);
+}
+/** контурная копия группы — «чертёж»: линии рисуются через stroke-dashoffset */
+function blueprint(src, parent, color = '#3b74b8') {
+  const c = src.cloneNode(true); parent.appendChild(c);
+  c.querySelectorAll('text').forEach((e) => e.remove());
+  const shapes = [];
+  c.querySelectorAll('polygon,path,circle,ellipse,line,rect').forEach((e) => {
+    e.setAttribute('fill', 'none'); e.setAttribute('stroke', color); e.setAttribute('stroke-width', 2.6); e.setAttribute('stroke-linejoin', 'round'); e.removeAttribute('opacity');
+    const len = Math.max(1, e.getTotalLength());
+    e.setAttribute('stroke-dasharray', `${len.toFixed(1)} ${len.toFixed(1)}`);
+    shapes.push([e, len]);
+  });
+  return { c, shapes };
+}
+
+// ===================== сцены =====================
+const SCENES = [];
+function scene(t0, t1, title, build) {
+  const g = el('g', {}, SVG);
+  const tEl = document.createElement('div'); tEl.className = 'title'; tEl.innerHTML = title; document.getElementById('titles').appendChild(tEl);
+  const update = build(g, tEl);
+  SCENES.push({ t0, t1, g, tEl, update });
+}
+
+// 1. Дверь психотерапевта: мужчина подходит и останавливается
+scene(-0.4, 3.6, 'Почему мужчины<br>реже ходят<br>к <span class="g">психотерапевту</span>?', (g) => {
+  const S = 300, pr = proj([250, 930], S);
+  floorPoly(g, pr, -0.8, -0.3, 2.6, 1.5);
+  const house = el('g', {}, g);
+  box(house, pr, 0, 0, 0, 1.8, 0.7, 1.1, '#e3ddd0');
+  const face = (x0, x1, z0, z1, fill) => el('polygon', { points: pr.pts([[x0, 0.701, z0], [x1, 0.701, z0], [x1, 0.701, z1], [x0, 0.701, z1]]), fill }, house);
+  face(0.75, 1.07, 0, 0.62, '#7a6250'); face(0.79, 1.03, 0.04, 0.58, '#8c735f');
+  face(0.18, 0.5, 0.5, 0.82, '#bcd3df'); face(1.32, 1.64, 0.5, 0.82, '#bcd3df');
+  const sp = pr.P(0.91, 0.7, 0.97);
+  pill(house, sp[0], sp[1], 'Психотерапевт', C_.card, C_.ink, 26);
+  const walker = el('g', {}, g);
+  const head = person(walker, pr, 0.8, 1.25, 2.2);
+  const q = el('g', {}, g);
+  el('circle', { cx: head[0] - 80, cy: head[1] - 30, r: 44, fill: C_.card, stroke: C_.zeroInk, 'stroke-width': 6 }, q);
+  txt(q, head[0] - 80, head[1] - 11, '?', { 'font-size': 54, 'font-weight': 800, fill: C_.zeroInk, 'text-anchor': 'middle' });
+  return (t) => {
+    pop(house, t, -0.4, 540, 1000, { spring: false });
+    const k = ease((t + 0.3) / 1.9);
+    const dx = (1 - k) * -1.9;
+    const bob = Math.abs(Math.sin(t * 11)) * 8 * (1 - k);
+    walker.setAttribute('transform', `translate(${(dx * EX[0] * S).toFixed(1)} ${(dx * EX[1] * S - bob).toFixed(1)})`);
+    pop(q, t, T.q - 0.1, head[0] - 80, head[1] - 30);
+  };
+});
+
+// 2. Подстроить себя: человек сжимается и сереет, чтобы влезть в паз системы
+scene(3.6, 17.3, 'Подстроить <span class="g">себя</span><br>под систему', (g) => {
+  const S = 300, pr = proj([110, 1040], S);
+  floorPoly(g, pr, -0.3, -0.3, 2.3, 1.25);
+  const W = el('g', {}, g); wall(W, pr, wallCells(SLOT));
+  const wl = pr.P(0.9, 0.15, 3 * BH);
+  const wlab = pill(g, wl[0], wl[1] - 50, 'система', '#e3e7e4', C_.muted, 28);
+  const X0 = 1.3, Y0 = 0.8, K = 2.4, u = 0.06 * K;
+  const man = el('g', {}, g); const inner = el('g', {}, man);
+  const head = person(inner, pr, X0, Y0, K);
+  const gray = grayer(inner);
+  const F = pr.P(X0 + 0.9 * u, Y0 + 0.6 * u, 0), TG = pr.P(0.75, 0.48, 0);
+  const lines = el('g', {}, g);
+  const cards = [['дисциплина', T.c1], ['подстраиваться', T.c2], ['контроль эмоций', T.c3], ['принятие', T.c4], ['компромиссы', T.c5]].map(([label, at], i) => {
+    const cy = 470 + i * 108, w = label.length * 32 * 0.58 + 40;
+    const ln = el('line', { x1: 840 - w / 2 - 8, y1: cy, x2: F[0] + 40, y2: F[1] - 170, stroke: C_.zero, 'stroke-width': 3, 'stroke-dasharray': '8 8' }, lines);
+    return { b: pill(g, 840, cy, label, C_.zeroSoft, C_.zeroInk, 32), ln, at, cy };
+  });
+  const tag = pill(g, head[0], head[1] - 60, 'изменить человека', C_.ink, '#f3f1ea', 28);
+  return (t) => {
+    pop(W, t, T.s2 - 0.2, 400, 950, { dy: 30, spring: false });
+    pop(wlab, t, T.s2 + 0.3, wl[0], wl[1] - 50);
+    pop(man, t, T.s2 + 0.4, F[0], F[1], { dy: 20, spring: false });
+    pop(tag, t, T.self - 0.1, head[0], head[1] - 60, { b: T.c1 - 0.3 });
+    let prog = 0;
+    cards.forEach((c) => { pop(c.b, t, c.at - 0.1, 840, c.cy); setOp(c.ln, vis(t, c.at, T.fit + 0.4) * 0.7); prog += inn(t, c.at, 0.6) / cards.length; });
+    const m = inn(t, T.fit, 0.7);
+    cssT(inner, lerp(0, TG[0] - F[0], m), lerp(0, TG[1] - F[1], m), 1 - 0.45 * prog, 1 - 0.5 * prog, F[0], F[1]);
+    gray(prog * 0.9);
+  };
+});
+
+// 3. Изменить систему: строить, перестраивать, улучшать, открывать возможности
+scene(17.3, 28.5, 'Или изменить<br><span class="g">систему</span>', (g) => {
+  const S = 300, pr = proj([110, 1040], S);
+  floorPoly(g, pr, -0.3, -0.3, 2.6, 1.25);
+  const light = el('polygon', { points: pr.pts([[0.58, 0, 0], [1.22, 0, 0], [1.22, 0, 0.7], [0.58, 0, 0.7]]), fill: '#f6d77a' }, g);
+  const path = [0, 1, 2].map((i) => { const p = el('g', {}, g); box(p, pr, 0.64, 0.38 + i * 0.29, 0, 0.52, 0.23, 0.015, '#bfe0cd'); return [p, pr.P(0.9, 0.5 + i * 0.29, 0)]; });
+  const BUILD = [[4, 3], [5, 3]], OUT = [[3, 0], [3, 1]], IN = [[0, 3], [1, 3]];
+  const is = (b, list) => list.some(([c, r]) => b.c === c && b.r === r);
+  const W = el('g', {}, g);
+  const blocks = wall(W, pr, wallCells(SLOT).concat(BUILD, IN), '#c9cfcb', C_.one);
+  const X0 = 2.05, Y0 = 0.6, K = 2.4, u = 0.06 * K;
+  const man = el('g', {}, g); person(man, pr, X0, Y0, K);
+  const F = pr.P(X0 + 0.9 * u, Y0 + 0.6 * u, 0);
+  const hand = pr.P(X0 + 2.3 * u, Y0 + 0.5 * u, 3.7 * u);
+  const wr = el('g', {}, g); wrenchIcon(wr);
+  const p1 = pill(g, 800, 470, 'приспосабливаться', '#ece8df', C_.muted, 28);
+  const strike = el('line', { x1: 652, y1: 470, x2: 948, y2: 470, stroke: C_.zeroInk, 'stroke-width': 5, 'stroke-linecap': 'round' }, g);
+  const p2 = pill(g, 800, 562, 'менять систему', C_.oneSoft, C_.one, 30);
+  const spark = el('g', {}, g);
+  [[0.55, 0.85], [1.25, 0.78], [0.9, 1.0]].forEach(([x, z]) => { const p = pr.P(x, 0.3, z); el('path', { d: `M ${p[0]} ${p[1] - 24} L ${p[0] + 6} ${p[1] - 6} L ${p[0] + 24} ${p[1]} L ${p[0] + 6} ${p[1] + 6} L ${p[0]} ${p[1] + 24} L ${p[0] - 6} ${p[1] + 6} L ${p[0] - 24} ${p[1]} L ${p[0] - 6} ${p[1] - 6} Z`, fill: '#e6b730' }, spark); });
+  return (t) => {
+    pop(W, t, T.s3 - 0.2, 400, 950, { dy: 30, spring: false });
+    pop(man, t, T.s3 + 0.1, F[0], F[1], { dy: 20, spring: false });
+    pop(p1, t, T.adapt - 0.1, 800, 470); setOp(strike, inn(t, T.adapt + 0.8, 0.3));
+    pop(p2, t, T.change - 0.1, 800, 562);
+    blocks.forEach((b) => {
+      if (is(b, BUILD)) { const k = inn(t, T.build + (b.c - 4) * 0.25, 0.45); b.w.setAttribute('transform', `translate(0 ${(-(1 - k) * 240).toFixed(1)})`); setOp(b.w, clamp(k * 3)); }
+      else if (is(b, OUT)) { const k = inn(t, T.rebuild, 0.35); cssT(b.w, 0, 0, 1 - k, 1 - k, b.p[0], b.p[1]); setOp(b.w, 1 - k); }
+      else if (is(b, IN)) { const a = T.rebuild + 0.35 + b.c * 0.2; b.w.setAttribute('transform', `translate(0 ${(-(1 - inn(t, a, 0.4)) * 140).toFixed(1)})`); setOp(b.w, inn(t, a, 0.25)); }
+      if (b.on) setOp(b.on, inn(t, T.improve + b.c * 0.09 + b.r * 0.03, 0.35));
+    });
+    setOp(light, inn(t, T.open, 0.5));
+    path.forEach(([p, c], i) => pop(p, t, T.open + 0.2 + i * 0.15, c[0], c[1], { spring: false, dy: 10 }));
+    setOp(spark, vis(t, T.open + 0.3) * (0.7 + 0.3 * Math.sin(t * 8)));
+    const act = [T.build, T.rebuild, T.improve, T.open].some((a) => t > a && t < a + 0.7);
+    wr.setAttribute('transform', `translate(${hand[0].toFixed(1)} ${hand[1].toFixed(1)}) rotate(${(-40 + (act ? 18 * Math.sin(t * 16) : 0)).toFixed(1)}) scale(0.5)`);
+    setOp(wr, vis(t, T.s3 + 0.3));
+  };
+});
+
+// 4. Бизнес-курсы: витрина курсов и очередь; «стать счастливее» против «изменить обстоятельства»
+scene(28.5, 38.8, 'Почему популярны<br><span class="g">бизнес-курсы</span>?', (g) => {
+  const card = el('g', {}, g);
+  el('rect', { x: 170, y: 390, width: 740, height: 450, rx: 30, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, card);
+  [0, 1, 2].forEach((i) => el('circle', { cx: 210 + i * 30, cy: 430, r: 9, fill: '#d6dbe0' }, card));
+  const rows = [['₽', '#d9a62e', 'Свой бизнес с нуля'], ['×2', C_.one, 'Доход ×2 за 3 месяца'], ['↗', '#3f7f9f', 'Масштабируй своё дело']].map(([ic, col, name], i) => {
+    const r = el('g', {}, g); const y = 465 + i * 120;
+    el('rect', { x: 200, y, width: 680, height: 100, rx: 22, fill: '#fff', stroke: C_.line, 'stroke-width': 2 }, r);
+    el('rect', { x: 220, y: y + 18, width: 64, height: 64, rx: 16, fill: col }, r);
+    txt(r, 252, y + 61, ic, { 'font-size': 30, 'font-weight': 800, fill: '#fff', 'text-anchor': 'middle' });
+    txt(r, 306, y + 46, name, { 'font-size': 30, 'font-weight': 700 });
+    txt(r, 306, y + 80, '★★★★★', { 'font-size': 24, fill: '#d9a62e' });
+    pill(r, 790, y + 50, 'Записаться', C_.one, '#fff', 22);
+    return [r, y + 50];
+  });
+  const prQ = proj([150, 1000], 200);
+  const shirts = ['#2f6f8f', '#4a5560', '#3f7f9f', '#5b6b75', '#2f6f8f', '#6d7f8a', '#3a6f7f'];
+  const queue = shirts.map((sh, i) => { const p = el('g', {}, g); person(p, prQ, i * 0.42, 0, 1.15, sh); return [p, prQ.P(i * 0.42, 0, 0)]; });
+  const left = el('g', {}, g);
+  el('rect', { x: 80, y: 1185, width: 440, height: 190, rx: 28, fill: '#efece5' }, left);
+  txt(left, 300, 1265, 'стать счастливее', { 'font-size': 34, 'font-weight': 700, fill: C_.muted, 'text-anchor': 'middle' });
+  txt(left, 300, 1310, 'в обстоятельствах', { 'font-size': 34, 'font-weight': 700, fill: C_.muted, 'text-anchor': 'middle' });
+  const strike = el('line', { x1: 120, y1: 1280, x2: 480, y2: 1280, stroke: C_.zeroInk, 'stroke-width': 6, 'stroke-linecap': 'round' }, g);
+  const right = el('g', {}, g);
+  el('rect', { x: 560, y: 1185, width: 440, height: 190, rx: 28, fill: C_.oneSoft, stroke: C_.one, 'stroke-width': 4 }, right);
+  txt(right, 780, 1265, 'изменить', { 'font-size': 38, 'font-weight': 800, fill: C_.one, 'text-anchor': 'middle' });
+  txt(right, 780, 1312, 'обстоятельства', { 'font-size': 38, 'font-weight': 800, fill: C_.one, 'text-anchor': 'middle' });
+  el('path', { d: 'M 940 1210 l 16 18 l 30 -36', stroke: C_.one, 'stroke-width': 8, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, right);
+  return (t) => {
+    pop(card, t, T.s4 - 0.1, 540, 615, { dy: 30, spring: false });
+    rows.forEach(([r, cy], i) => pop(r, t, T.pop - 0.2 + i * 0.3, 540, cy, { dy: 16 }));
+    queue.forEach(([p, c], i) => pop(p, t, T.courses + i * 0.14, c[0], c[1], { dy: 20 }));
+    pop(left, t, T.happier - 0.2, 300, 1280, { dy: 20 });
+    setOp(strike, inn(t, T.but, 0.3));
+    left.setAttribute('opacity', (vis(t, T.happier - 0.2) * (1 - 0.45 * inn(t, T.but, 0.3))).toFixed(3));
+    pop(right, t, T.change2 - 0.1, 780, 1280);
+  };
+});
+
+// 5. Пирамида успеха: внизу многие, наверху единицы
+scene(38.8, 49.8, 'Вершина —<br><span class="g">для немногих</span>', (g) => {
+  const S = 260, pr = proj([415, 620], S);
+  const N = 5, IN = 0.22, H = 0.2, B = 2.2;
+  const R = seeded(11);
+  const counts = [34, 16, 7, 3];
+  const levels = [], dots = [];
+  for (let i = 0; i < N; i++) {
+    const lg = el('g', {}, g);
+    const x0 = IN * i, s = B - 2 * IN * i;
+    box(lg, pr, x0, x0, H * i, s, s, H, i === N - 1 ? '#e6c35c' : shade('#e3ddd0', -0.035 * i));
+    levels.push([lg, pr.P(B / 2, B / 2, H * i)]);
+    if (i < N - 1) {
+      const dg = el('g', {}, g); let k = 0, guard = 0;
+      const ix = IN * (i + 1), is = B - 2 * IN * (i + 1);
+      while (k < counts[i] && guard++ < 4000) {
+        const x = x0 + 0.05 + R() * (s - 0.1), y = x0 + 0.05 + R() * (s - 0.1);
+        if (x > ix - 0.06 && x < ix + is + 0.06 && y > ix - 0.06 && y < ix + is + 0.06) continue;
+        const p = pr.P(x, y, H * (i + 1));
+        dots.push({ d: el('circle', { cx: p[0], cy: p[1], r: 10, fill: '#6f8794' }, dg), p, lvl: i, ph: R() * 6.28, front: x + y > B * 1.15 });
+        k++;
+      }
+      levels[i].push(dg);
+    }
+  }
+  const climbers = dots.filter((d) => d.lvl === 0 && d.front).slice(0, 6);
+  const top = el('g', {}, g);
+  climbers.forEach((d) => top.appendChild(d.d));
+  const u = 0.06 * 1.4;
+  const hero = el('g', {}, g); const hz = el('g', { transform: `translate(0 ${(-H * N * 0.78 * S).toFixed(1)})` }, hero);
+  const head = person(hz, pr, B / 2 - 0.9 * u, B / 2 - 0.6 * u, 1.4, '#2f6f8f');
+  const headY = head[1] - H * N * 0.78 * S;
+  const coin = el('g', {}, g);
+  el('circle', { cx: head[0] + 70, cy: headY - 30, r: 34, fill: '#e6c35c', stroke: '#b9871a', 'stroke-width': 4 }, coin);
+  txt(coin, head[0] + 70, headY - 17, '₽', { 'font-size': 36, 'font-weight': 800, fill: '#8a6110', 'text-anchor': 'middle' });
+  const tagS = pill(g, head[0] - 70, headY - 70, 'успех', C_.card, C_.ink, 28);
+  const cx = pr.P(B / 2, B / 2, H)[0];
+  return (t) => {
+    levels.forEach(([lg, c, dg], i) => { pop(lg, t, T.econ - 0.3 + i * 0.15, c[0], c[1], { dy: 30, spring: false }); if (dg) setOp(dg, inn(t, T.notall - 0.2 + i * 0.25, 0.5)); });
+    pop(hero, t, T.success - 0.1, head[0], head[1], { dy: -30, spring: false });
+    pop(coin, t, T.success + 0.2, head[0] + 70, headY - 30);
+    pop(tagS, t, T.success, head[0] - 70, headY - 70);
+    const jit = 4 * inn(t, T.compet, 0.5);
+    dots.forEach((d, i) => {
+      let x = d.p[0] + Math.sin(t * 7 + d.ph) * jit, y = d.p[1] + Math.cos(t * 6 + d.ph) * jit * 0.5;
+      const j = climbers.indexOf(d);
+      if (j >= 0) {
+        const up = inn(t, T.chance + j * 0.3, 0.5) - inn(t, T.small + j * 0.12, 0.35);
+        x += (cx - d.p[0]) * 0.16 * up; y -= 62 * up;
+      }
+      d.d.setAttribute('cx', x.toFixed(1)); d.d.setAttribute('cy', y.toFixed(1));
+      if (j >= 0) setOp(d.d, inn(t, T.notall - 0.2, 0.5));
+    });
+  };
+});
+
+// 6. Объединить два подхода
+scene(49.8, 52.55, 'Объединить<br><span class="g">два подхода</span>?', (g) => {
+  const pr = proj([0, 0], 260);
+  const halo = el('ellipse', { cx: 540, cy: 1050, rx: 330, ry: 90, fill: C_.oneSoft }, g);
+  const mk = (color, icon, label, side) => {
+    const b = el('g', {}, g); const inner = el('g', {}, b);
+    box(inner, pr, -0.3, -0.3, 0, 0.6, 0.6, 0.6, color);
+    const f = pr.P(0, 0.3, 0.3);
+    txt(inner, f[0] - 4, f[1] + 26, icon, { 'font-size': 76, 'font-weight': 800, fill: '#fff', 'text-anchor': 'middle' });
+    const tp = pr.P(0, 0, 0.6);
+    pill(inner, tp[0] + side * 70, tp[1] - 110, label, C_.card, C_.ink, 30);
+    return { b, inner };
+  };
+  const L = mk('#7d9cb0', '♥', 'принимать', -1), Rr = mk('#d9a62e', '₽', 'зарабатывать', 1);
+  const plus = el('g', {}, g);
+  el('circle', { cx: 540, cy: 760, r: 46, fill: C_.one }, plus);
+  txt(plus, 540, 782, '+', { 'font-size': 64, 'font-weight': 800, fill: '#fff', 'text-anchor': 'middle' });
+  return (t) => {
+    const k = inn(t, T.unite, 0.6);
+    L.b.setAttribute('transform', `translate(${lerp(290, 420, k).toFixed(1)} 1050)`);
+    Rr.b.setAttribute('transform', `translate(${lerp(790, 660, k).toFixed(1)} 1050)`);
+    pop(L.inner, t, T.s6 - 0.1, 0, 0, { dy: 30 }); pop(Rr.inner, t, T.s6 + 0.15, 0, 0, { dy: 30 });
+    pop(plus, t, T.unite + 0.3, 540, 760);
+    setOp(halo, inn(t, T.two, 0.4));
+  };
+});
+
+// 7. Не просто зарабатывать «однажды» и не просто принимать как есть
+scene(52.55, 60.2, 'Не просто…', (g) => {
+  const top = el('g', {}, g), bot = el('g', {}, g);
+  el('rect', { x: 60, y: 380, width: 960, height: 500, rx: 30, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, top);
+  el('rect', { x: 60, y: 920, width: 960, height: 500, rx: 30, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, bot);
+  const S = 200, pr = proj([190, 610], S);
+  el('polygon', { points: pr.pts([[0, 0, 0], [3.5, 0, 0], [3.5, 0.4, 0], [0, 0.4, 0]]), fill: '#e3ddd0' }, top);
+  for (let i = 0; i < 9; i++) { const a = pr.P(0.12 + i * 0.38, 0.2, 0), b = pr.P(0.32 + i * 0.38, 0.2, 0); el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: '#fbfaf6', 'stroke-width': 6, 'stroke-linecap': 'round' }, top); }
+  const runner = el('g', {}, top); person(runner, pr, 0.3, 0.06, 1.5);
+  const flag = el('g', {}, top);
+  const fb = pr.P(0, 0.2, 0), ft = pr.P(0, 0.2, 1.0);
+  el('line', { x1: fb[0], y1: fb[1], x2: ft[0], y2: ft[1], stroke: '#5b6368', 'stroke-width': 6, 'stroke-linecap': 'round' }, flag);
+  el('rect', { x: ft[0], y: ft[1], width: 124, height: 52, rx: 8, fill: C_.one }, flag);
+  txt(flag, ft[0] + 62, ft[1] + 35, 'счастье', { 'font-size': 26, 'font-weight': 800, fill: '#fff', 'text-anchor': 'middle' });
+  const oneday = pill(flag, ft[0] + 62, ft[1] - 44, 'однажды…', '#ece8df', C_.muted, 26);
+  const [lt] = pillL(top, 90, 425, 'зарабатывать больше', '#fbf0d6', '#8a6110', 28);
+  // нижняя панель: стоит под тучкой, всё серое
+  const prB = proj([520, 1360], 260);
+  const sad = el('g', {}, bot);
+  el('polygon', { points: prB.pts([[-0.35, -0.35, 0], [0.55, -0.35, 0], [0.55, 0.55, 0], [-0.35, 0.55, 0]]), fill: '#e7e5e0' }, sad);
+  const head = person(sad, prB, 0, 0, 2.0, '#6d7f8a');
+  const gray = grayer(sad); gray(0.7);
+  const cloud = el('g', {}, bot);
+  const cx = head[0] + 10, cy = head[1] - 80;
+  [[-46, 10, 38], [0, -8, 50], [48, 8, 40]].forEach(([dx, dy, r]) => el('circle', { cx: cx + dx, cy: cy + dy, r, fill: '#a9b0b4' }, cloud));
+  el('rect', { x: cx - 84, y: cy + 8, width: 172, height: 40, rx: 20, fill: '#a9b0b4' }, cloud);
+  const rain = [-50, -20, 10, 40, 70].map((dx) => el('line', { x1: cx + dx - 12, y1: 0, x2: cx + dx - 18, y2: 0, stroke: '#8fa3b0', 'stroke-width': 4, 'stroke-linecap': 'round' }, cloud));
+  const [lb] = pillL(bot, 90, 965, 'принимать как есть', '#ece8df', C_.muted, 28);
+  return (t) => {
+    pop(top, t, T.s7 - 0.1, 540, 630, { dy: 30, spring: false });
+    const rk = clamp((t - T.s7) / 3.8);
+    const rx = 1.2 * rk, bob = Math.abs(Math.sin(t * 12)) * 7 * (rk < 1 ? 1 : 0);
+    runner.setAttribute('transform', `translate(${(rx * EX[0] * S).toFixed(1)} ${(rx * EX[1] * S - bob).toFixed(1)})`);
+    const fx = 2.3 + 1.0 * rk;
+    flag.setAttribute('transform', `translate(${(fx * EX[0] * S).toFixed(1)} ${(fx * EX[1] * S).toFixed(1)})`);
+    pop(oneday, t, T.oneday - 0.1, ft[0] + 62, ft[1] - 44);
+    pop(lt, t, T.earn - 0.2, 240, 425);
+    pop(bot, t, T.accept - 0.1, 540, 1170, { dy: 30, spring: false });
+    pop(lb, t, T.acceptW - 0.2, 230, 965);
+    rain.forEach((r, i) => { const y = cy + 60 + ((t * 160 + i * 23) % 60); r.setAttribute('y1', y.toFixed(1)); r.setAttribute('y2', (y + 22).toFixed(1)); });
+  };
+});
+
+// 8. Инженерно менять действия и систему — удовольствие уже сейчас
+scene(60.2, 68.8, 'Инженерно менять<br><span class="g">действия и систему</span>', (g) => {
+  const S = 260, pr = proj([400, 690], S);
+  const plat = el('g', {}, g);
+  const platOn = el('g', {}, g);
+  box(plat, pr, 0, 0, -0.08, 2.4, 1.2, 0.08, '#e3ddd0');
+  box(platOn, pr, 0, 0, -0.08, 2.4, 1.2, 0.08, '#cfe6d9');
+  const codes = [['011', '111', '101', '011'], ['001', '011', '111', '101']];
+  const FLIP = ['0,0', '0,2', '1,1', '1,0'];
+  const blocks = [];
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) {
+    const code = codes[r][c], x = 0.15 + c * 0.58, y = 0.15 + r * 0.55, h = 0.22 + ((r * 4 + c) % 3) * 0.06;
+    const w = el('g', {}, g);
+    const off = el('g', {}, w); box(off, pr, x, y, 0, 0.38, 0.38, h, code === '111' ? C_.one : C_.zero);
+    const on = el('g', {}, w); box(on, pr, x, y, 0, 0.38, 0.38, h, C_.one); setOp(on, 0);
+    const tp = pr.P(x + 0.19, y + 0.19, h);
+    const b0 = miniBadge(g, tp[0], tp[1] - 52, code), b1 = miniBadge(g, tp[0], tp[1] - 52, '111'); setOp(b1, 0);
+    const fi = FLIP.indexOf(`${r},${c}`);
+    blocks.push({ w, on, b0, b1, tp, at: fi >= 0 ? T.acts + fi * 0.36 : null, k: r * 4 + c });
+  }
+  const man = el('g', {}, g); const mh = person(man, pr, -0.6, 0.45, 2.0);
+  const wr = el('g', {}, g); wrenchIcon(wr);
+  const gauge = el('g', {}, g);
+  el('rect', { x: 140, y: 1225, width: 800, height: 36, rx: 18, fill: '#e3dfd6' }, gauge);
+  const bar = el('rect', { x: 140, y: 1225, width: 200, height: 36, rx: 18, fill: C_.one }, gauge);
+  const lab = txt(gauge, 140, 1203, '', { 'font-size': 32, 'font-weight': 700 });
+  const now = pill(g, 540, 1340, 'уже сейчас, а не «однажды»', C_.oneSoft, C_.one, 32);
+  const sysTag = pill(g, pr.P(2.4, 0.6, 0)[0] - 40, pr.P(2.4, 0.6, 0)[1] + 60, 'система', C_.card, C_.muted, 26);
+  return (t) => {
+    pop(plat, t, T.s8 - 0.2, 700, 900, { dy: 30, spring: false });
+    setOp(platOn, inn(t, T.system, 0.6) * vis(t, T.s8 - 0.2));
+    pop(sysTag, t, T.system - 0.1, pr.P(2.4, 0.6, 0)[0] - 40, pr.P(2.4, 0.6, 0)[1] + 60);
+    pop(man, t, T.s8, mh[0], mh[1] + 200, { dy: 20, spring: false });
+    let cur = null;
+    blocks.forEach((b) => {
+      pop(b.w, t, T.s8 + 0.1 + b.k * 0.08, b.tp[0], b.tp[1], { dy: 20 });
+      if (b.at !== null) {
+        const k = inn(t, b.at + 0.15, 0.3);
+        setOp(b.on, k * vis(t, T.s8)); setOp(b.b0, (1 - k) * vis(t, T.eng - 0.4)); setOp(b.b1, k);
+        if (t >= b.at - 0.1 && t < b.at + 0.36) cur = b;
+      } else setOp(b.b0, vis(t, T.eng - 0.4));
+    });
+    if (cur) { setOp(wr, 1); wr.setAttribute('transform', `translate(${cur.tp[0] + 40} ${cur.tp[1] + 30}) rotate(${(-30 + 20 * Math.sin(t * 18)).toFixed(1)}) scale(0.42)`); } else setOp(wr, 0);
+    pop(gauge, t, T.eng - 0.2, 540, 1240, { dy: 20, spring: false });
+    const lvl = Math.round(30 + 16 * inn(t, T.acts, 1.6) + 12 * inn(t, T.system, 0.8) + 20 * inn(t, T.pleasure - 0.2, 1.2));
+    bar.setAttribute('width', (800 * lvl / 100).toFixed(1));
+    lab.textContent = `Уровень свободы (пример): ${lvl}%`;
+    pop(now, t, T.now - 0.15, 540, 1340);
+  };
+});
+
+// 9. Три вопроса — неделя замеров — что перестроить
+scene(68.8, 78.1, 'Три вопроса<br>к каждому действию', (g, te) => {
+  const ph = el('g', {}, g);
+  el('rect', { x: 250, y: 390, width: 580, height: 820, rx: 60, fill: '#1c2220' }, ph);
+  el('rect', { x: 268, y: 408, width: 544, height: 784, rx: 46, fill: C_.paper }, ph);
+  txt(ph, 540, 490, 'DCL-832', { 'font-size': 28, 'font-weight': 800, fill: C_.one, 'text-anchor': 'middle' });
+  txt(ph, 540, 560, 'Что вы сейчас делаете?', { 'font-size': 36, 'font-weight': 800, 'text-anchor': 'middle' });
+  const rows = [['D', 'Хочу?', T.q1], ['C', 'Согласен?', T.q2], ['L', 'Можно?', T.q3]].map(([L, q, at], i) => {
+    const y = 620 + i * 128, r = el('g', {}, ph);
+    el('rect', { x: 300, y, width: 480, height: 104, rx: 24, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, r);
+    txt(r, 336, y + 66, L, { 'font-size': 44, 'font-weight': 800, class: 'mono', fill: C_.one });
+    txt(r, 384, y + 64, q, { 'font-size': 36, 'font-weight': 700 });
+    el('circle', { cx: 648, cy: y + 52, r: 32, fill: '#ece8df' }, r);
+    txt(r, 648, y + 66, '0', { 'font-size': 36, 'font-weight': 800, class: 'mono', fill: C_.muted, 'text-anchor': 'middle' });
+    const one = el('circle', { cx: 728, cy: y + 52, r: 32, fill: '#ece8df' }, r);
+    const oneT = txt(r, 728, y + 66, '1', { 'font-size': 36, 'font-weight': 800, class: 'mono', fill: C_.muted, 'text-anchor': 'middle' });
+    return { one, oneT, at, cx: 728, cy: y + 52 };
+  });
+  const code = el('g', {}, ph); codeText(code, 540, 1090, '111', 96);
+  const cubeG = el('g', {}, g);
+  const parts = buildCube(cubeG);
+  parts.badges.forEach((b) => setOp(b.b, 1));
+  parts.axes.forEach((a) => { a.line.setAttribute('stroke-dashoffset', 0); setOp(a.lab, 1); });
+  parts.glow.setAttribute('r', 150); parts.glow.setAttribute('opacity', 0.14);
+  const dots = makeDots(parts, 7);
+  const freq = el('g', {}, cubeG);
+  const c011 = parts.corner['011'], c101 = parts.corner['101'];
+  const rings = [[c011, 120], [c101, 95]].map(([c, r]) => el('ellipse', { cx: c[0], cy: c[1], rx: r, ry: r * 0.72, fill: 'none', stroke: C_.zeroInk, 'stroke-width': 5, 'stroke-dasharray': '10 10' }, freq));
+  pill(freq, c011[0] - 40, c011[1] + 108, 'перестроить', C_.zeroSoft, C_.zeroInk, 26);
+  pill(freq, c101[0] + 60, c101[1] + 88, 'перестроить', C_.zeroSoft, C_.zeroInk, 26);
+  return (t) => {
+    te.innerHTML = t < T.week - 0.2 ? 'Три вопроса<br>к каждому действию' : 'Неделя <span class="g">замеров</span><small>видно, какие действия перестроить</small>';
+    pop(ph, t, T.s9 - 0.1, 540, 800, { dy: 30, spring: false, b: T.week - 0.1 });
+    rows.forEach((r) => { const k = inn(t, r.at, 0.25); r.one.setAttribute('fill', k > 0.5 ? C_.one : '#ece8df'); r.oneT.setAttribute('fill', k > 0.5 ? '#fff' : C_.muted);
+      const s = 1 + 0.25 * Math.sin(clamp((t - r.at) / 0.35) * Math.PI); r.one.setAttribute('r', (32 * s).toFixed(1)); });
+    pop(code, t, T.q3 + 0.4, 540, 1060);
+    pop(cubeG, t, T.week - 0.05, 540, 930, { dy: 30, spring: false });
+    dots.forEach((d) => {
+      const k = ease((t - T.week - 0.1 - d.delay * 1.6) / 0.6);
+      d.d.setAttribute('cx', d.x.toFixed(1)); d.d.setAttribute('cy', (d.y - (1 - k) * 240).toFixed(1));
+      setOp(d.d, clamp(k * 2) * 0.88);
+    });
+    setOp(freq, vis(t, T.rebuild2 - 0.1, 1e9, 0.35));
+    rings.forEach((r, i) => r.setAttribute('stroke-dashoffset', (t * 30 * (i ? -1 : 1)).toFixed(1)));
+  };
+});
+
+// 10. DCL — инженерия благополучия
+scene(78.1, 82.8, '', (g) => {
+  const bars = [[42, 46], [25, 66], [8, 76], [-9, 68], [-26, 52]].map(([x, h], i) => [el('rect', { x: 540 - x * 3 - 18, y: 820 - h * 3, width: 36, height: h * 3, rx: 18, fill: C_.one }, g), h * 3, i]);
+  const dcl = txt(g, 540, 1010, 'DCL', { 'font-size': 180, 'font-weight': 800, 'text-anchor': 'middle', class: 'mono', fill: C_.ink });
+  const sub = el('g', {}, g);
+  txt(sub, 540, 1110, 'инженерия', { 'font-size': 70, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.one });
+  txt(sub, 540, 1190, 'благополучия', { 'font-size': 70, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.one });
+  return (t) => {
+    bars.forEach(([r, h, i]) => { const k = back((t - T.s10 + 0.1 - i * 0.12) / 0.55); const hh = Math.max(0, h * k); r.setAttribute('height', hh.toFixed(1)); r.setAttribute('y', (820 - hh).toFixed(1)); setOp(r, clamp((t - T.s10 + 0.1 - i * 0.12) * 6)); });
+    pop(dcl, t, T.dcl - 0.15, 540, 950, { dy: 20 });
+    pop(sub, t, T.wb - 0.15, 540, 1150, { dy: 20 });
+  };
+});
+
+// 11а. Не приспосабливайся: стена рассыпается, человек распрямляется
+scene(82.8, 85.1, 'Не <span class="g">приспосабливайся</span>', (g) => {
+  const S = 300, pr = proj([110, 1040], S);
+  floorPoly(g, pr, -0.3, -0.3, 2.3, 1.25);
+  const W = el('g', {}, g); const blocks = wall(W, pr, wallCells(SLOT));
+  const X0 = 1.3, Y0 = 0.8, K = 2.4, u = 0.06 * K;
+  const inner = el('g', {}, g); person(inner, pr, X0, Y0, K);
+  const gray = grayer(inner);
+  const F = pr.P(X0 + 0.9 * u, Y0 + 0.6 * u, 0), TG = pr.P(0.75, 0.48, 0);
+  return (t) => {
+    blocks.forEach((b, i) => { const k = ease((t - T.unhappy - ((i * 7) % 11) * 0.035) / 0.6); b.w.setAttribute('transform', `translate(${((b.c - 2.5) * 60 * k).toFixed(1)} ${(-k * (200 + b.r * 60)).toFixed(1)})`); setOp(b.w, 1 - Math.pow(k, 0.6)); });
+    const k = inn(t, T.unhappy + 0.2, 0.7);
+    cssT(inner, TG[0] - F[0], TG[1] - F[1], 0.55 + 0.45 * k, 0.5 + 0.5 * k, F[0], F[1]);
+    gray(0.9 * (1 - k));
+  };
+});
+
+// 11б. Спроектируй жизнь: чертёж превращается в цветную сцену
+scene(85.1, 89.0, 'Спроектируй<br><span class="g">жизнь</span>', (g) => {
+  const paper = el('g', {}, g);
+  el('rect', { x: 60, y: 400, width: 960, height: 1020, rx: 30, fill: '#eef3f8', stroke: '#c9d8e8', 'stroke-width': 3 }, paper);
+  for (let x = 100; x < 1020; x += 40) el('line', { x1: x, y1: 402, x2: x, y2: 1418, stroke: '#dbe6f1', 'stroke-width': 2 }, paper);
+  for (let y = 440; y < 1420; y += 40) el('line', { x1: 62, y1: y, x2: 1018, y2: y, stroke: '#dbe6f1', 'stroke-width': 2 }, paper);
+  const col = el('g', {}, g);
+  lifeScene(col, proj([440, 800], 340), [880, 580]);
+  const bp = blueprint(col, g);
+  const n = bp.shapes.length;
+  return (t) => {
+    pop(paper, t, T.design - 0.2, 540, 900, { spring: false });
+    bp.shapes.forEach(([e, len], i) => { const k = ease((t - T.design - (i / n) * 1.0) / 0.45); e.setAttribute('stroke-dashoffset', ((1 - k) * len).toFixed(1)); });
+    setOp(col, inn(t, T.life, 1.3));
+    setOp(bp.c, 1 - 0.85 * inn(t, T.life + 0.5, 1.1));
+  };
+});
+
+// 12. Финал
+scene(89.0, 999, '', (g) => {
+  const fin = el('g', {}, g);
+  [[42, 46], [25, 66], [8, 76], [-9, 68], [-26, 52]].forEach(([x, h]) => el('rect', { x: 540 - x * 2.4 - 14, y: 640 - h * 2.4, width: 28, height: h * 2.4, rx: 14, fill: C_.one }, fin));
+  txt(fin, 540, 790, 'DCL', { 'font-size': 150, 'font-weight': 800, 'text-anchor': 'middle', class: 'mono', fill: C_.ink });
+  txt(fin, 540, 880, 'инженерия благополучия', { 'font-size': 62, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.one });
+  const slog = el('g', {}, g);
+  txt(slog, 540, 1010, 'Спроектируй жизнь,', { 'font-size': 52, 'font-weight': 700, 'text-anchor': 'middle' });
+  txt(slog, 540, 1078, 'в которой хочется жить', { 'font-size': 52, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.one });
+  const url = el('g', {}, g);
+  el('rect', { x: 330, y: 1160, width: 420, height: 96, rx: 30, fill: C_.one }, url);
+  txt(url, 540, 1222, 'dcl832.click', { 'font-size': 52, 'font-weight': 800, 'text-anchor': 'middle', fill: '#f3f1ea' });
+  return (t) => { pop(fin, t, T.fin, 540, 760, { dy: 30 }); pop(slog, t, T.fin + 0.4, 540, 1040, { dy: 20 }); pop(url, t, T.fin + 1.0, 540, 1208); };
+});
+
+// ===================== субтитры =====================
+const FIX = { '–': '—', 'кажется,': 'кажется:' };
+let CHUNKS = [], lastCap = null;
+function buildCaptions(segments) {
+  const words = [];
+  for (const s of segments) for (const w of s.words) {
+    const txt0 = FIX[w.w] || w.w;
+    const prev = words[words.length - 1];
+    if (prev && /^-/.test(txt0)) { prev.w += txt0; prev.e = w.e; continue; }
+    if (prev && prev.w === 'за' && txt0 === 'меров') { prev.w = 'замеров —'; prev.e = w.e; continue; }
+    words.push({ w: txt0, s: w.s, e: w.e });
+  }
+  let cur = [];
+  const flush = () => { if (cur.length) CHUNKS.push(cur); cur = []; };
+  for (const w of words) { cur.push(w); const len = cur.map((x) => x.w).join(' ').length; if (/[.?!]$/.test(w.w) || (/[,:]$/.test(w.w) && len > 18) || len > 30) flush(); }
+  flush();
+}
+function renderCaption(t) {
+  let chunk = null;
+  for (let i = 0; i < CHUNKS.length; i++) { const c = CHUNKS[i], n = CHUNKS[i + 1]; const end = Math.min(c[c.length - 1].e + 0.6, n ? n[0].s - 0.05 : 1e9); if (t >= c[0].s - 0.15 && t < end) { chunk = c; break; } }
+  const cap = document.getElementById('cap');
+  if (!chunk) { cap.style.opacity = 0; return; }
+  if (lastCap !== chunk) { cap.innerHTML = chunk.map((w) => `<span>${w.w}</span> `).join(''); lastCap = chunk; }
+  cap.style.opacity = 1;
+  const spans = cap.querySelectorAll('span');
+  chunk.forEach((w, i) => { spans[i].className = t >= w.s ? (t < w.e + 0.05 ? 'on cur' : 'on') : ''; });
+}
+
+// ===================== кадр =====================
+function render(t) {
+  for (const sc of SCENES) {
+    const v = vis(t, sc.t0, sc.t1 - 0.3, 0.35, 0.3);
+    setOp(sc.g, v);
+    sc.tEl.style.opacity = v.toFixed(3);
+    sc.tEl.style.transform = `translateY(${((1 - inn(t, sc.t0, 0.45)) * 30).toFixed(1)}px)`;
+    sc.tEl.style.display = v < 0.003 ? 'none' : '';
+    if (v > 0.003) sc.update(t);
+  }
+  const hide = Math.max(vis(t, T.s10 - 0.3, 82.5, 0.3, 0.3), inn(t, T.fin - 0.2, 0.3));
+  document.getElementById('brand').style.opacity = (1 - hide).toFixed(3);
+  renderCaption(t);
+}
+window.render = render;
+window.setWords = (segments) => { CHUNKS = []; lastCap = null; buildCaptions(segments); };
+window.TIMES = T;
+(async () => {
+  const p = new URLSearchParams(location.search);
+  if (!window.__RENDERER__) {
+    try { window.setWords(await (await fetch('assets/words.json')).json()); } catch (e) { console.warn(e); }
+    render(Number(p.get('t') || 0));
+  }
+})();
+</script>
+</body>
+</html>
