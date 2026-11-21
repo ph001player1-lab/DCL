@@ -156,8 +156,14 @@ node video/render.mjs --video video/out/dcl832.mp4 --audio video/assets/mix.mp3
 ```
 
 Предпросмотр кадра в браузере: `video/index.html?t=48` (через локальный http-сервер).
-Готовое видео лежит в KV (ключ `media/dcl832.mp4`) и отдаётся по `/media/dcl832.mp4`
-с поддержкой Range-запросов (нужна Safari для перемотки).
+Готовые ролики лежат в KV и отдаются по `/media/<имя>` с поддержкой Range-запросов (нужна Safari
+для перемотки): `dcl832.mp4` — «Третья цифра» (`video/`), `dcl832-2.mp4` — «Пятёрка или троечка»
+(`video2/`), `dcl832-3.mp4` — «Спроектируй жизнь» (`video3/`). Обложки — `public/video/poster*.jpg`.
+Новый ролик: добавить имя в `MEDIA` в `src/worker.js` и залить файл:
+
+```bash
+npx wrangler kv key put media/dcl832-3.mp4 --path dcl832-3.mp4 --binding BOOKS --remote
+```
 
 ## Анализ данных
 

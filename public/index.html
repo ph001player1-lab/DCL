@@ -21,7 +21,7 @@
       <nav class="nav-links"><a href="#targets">Мишени</a><a href="#relations">Отношения</a><a href="#experiment">Эксперимент</a><a href="#science">Наука</a><a href="#author">Об авторе</a><a class="btn small" href="/webinar/">Психологам</a></nav>
     </header>
 
-    <div class="hero">
+    <div class="hero solo">
       <div>
         <h1>DCL: <em>инженерия благополучия</em></h1>
         <p class="lead hero-sub">Новый подход к поиску источников повседневного стресса</p>
@@ -33,15 +33,36 @@
         <div class="cta">
           <button class="btn primary" id="install-btn" hidden>Установить приложение</button>
           <a class="btn primary" id="install-link" href="#install">Установить приложение</a>
+          <a class="btn" href="#videos">Смотреть ролики</a>
           <a class="btn" href="#method">Как это работает</a>
         </div>
       </div>
-      <figure class="reel" aria-label="Ролик о методе DCL">
-        <video id="reel" src="/media/dcl832.mp4" poster="/video/poster.jpg" playsinline preload="none"></video>
-        <button class="reel-play" id="reel-play" type="button"><span class="tri"></span>Смотреть ролик · 2 мин</button>
-      </figure>
     </div>
   </div>
+
+  <section id="videos">
+    <div class="wrap">
+      <h2>Ролики о методе</h2>
+      <p class="sub">Три коротких ролика: какую цифру не видно в обычных оценках, как читать коды DCL и зачем инженерный подход к собственным действиям.</p>
+      <div class="reels">
+        <article class="reel-item">
+          <figure class="reel"><video src="/media/dcl832.mp4" poster="/video/poster.jpg" playsinline preload="none" aria-label="Ролик «Третья цифра»"></video><button class="reel-play" type="button"><span class="tri"></span>Смотреть · 1:58</button></figure>
+          <h3>Третья цифра</h3>
+          <p>Деньги и социальный рейтинг оценивают человека двумя цифрами. DCL добавляет третью: сколько в дне действий, которые вы сами хотите делать.</p>
+        </article>
+        <article class="reel-item">
+          <figure class="reel"><video src="/media/dcl832-2.mp4" poster="/video/poster-2.jpg" playsinline preload="none" aria-label="Ролик «Пятёрка или троечка»"></video><button class="reel-play" type="button"><span class="tri"></span>Смотреть · 2:08</button></figure>
+          <h3>Пятёрка или троечка</h3>
+          <p>Почему хотим жить на пятёрку, а живём на троечку. Три вопроса к каждому действию и карта недели: где копятся нули и как часто.</p>
+        </article>
+        <article class="reel-item">
+          <figure class="reel"><video src="/media/dcl832-3.mp4" poster="/video/poster-3.jpg" playsinline preload="none" aria-label="Ролик «Спроектируй жизнь»"></video><button class="reel-play" type="button"><span class="tri"></span>Смотреть · 1:32</button></figure>
+          <h3>Спроектируй жизнь</h3>
+          <p>Подстраиваться под систему или перестроить её. Инженерный подход к собственным действиям — для тех, кто привык менять обстоятельства.</p>
+        </article>
+      </div>
+    </div>
+  </section>
 
   <section>
     <div class="wrap">
@@ -370,11 +391,15 @@
       deferred = null;
       if (outcome === 'accepted') location.href = '/app/';
     });
-    const reel = document.getElementById('reel');
-    document.getElementById('reel-play').addEventListener('click', () => {
-      reel.controls = true;
-      reel.closest('.reel').classList.add('playing');
-      reel.play().catch(() => {});
+    const reels = [...document.querySelectorAll('.reel video')];
+    reels.forEach((v) => {
+      const fig = v.closest('.reel');
+      fig.querySelector('.reel-play').addEventListener('click', () => {
+        v.controls = true;
+        fig.classList.add('playing');
+        v.play().catch(() => {});
+      });
+      v.addEventListener('play', () => reels.forEach((o) => { if (o !== v) o.pause(); })); // играет один ролик
     });
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
   </script>

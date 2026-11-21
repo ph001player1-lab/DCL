@@ -423,7 +423,7 @@ async function serveBook(request, env, url) {
 
 // ---------- видео (MP4 в том же KV; поддержка Range — нужна Safari для перемотки) ----------
 
-const MEDIA = { 'dcl832.mp4': 'video/mp4' };
+const MEDIA = { 'dcl832.mp4': 'video/mp4', 'dcl832-2.mp4': 'video/mp4', 'dcl832-3.mp4': 'video/mp4' };
 
 async function serveMedia(request, env, url) {
   const key = url.pathname.slice('/media/'.length);
