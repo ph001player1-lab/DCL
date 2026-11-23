@@ -106,8 +106,16 @@ footer p { margin: 6px 0; }
 
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; gap: 36px; padding-top: 16px; }
-  .reels { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 8px; overscroll-behavior-x: contain; }
-  .reel-item { flex: 0 0 min(78%, 320px); scroll-snap-align: start; }
+  /* ролики на телефоне — списком: обложка слева, подпись справа; без прокрутки вбок */
+  .reels { display: flex; flex-direction: column; gap: 16px; }
+  .reel-item { display: grid; grid-template-columns: 132px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 14px; align-items: start; }
+  .reel-item .reel { border-radius: 18px; grid-row: 1 / span 2; }
+  .reel-item h3, .reel-item p { grid-column: 2; }
+  .reel-item h3 { margin: 2px 0 6px; font-size: 1.05rem; }
+  .reel-item p { font-size: .9rem; }
+  .reel-item .reel-play { padding: 8px; bottom: 12px; font-size: 0; gap: 0; }
+  .reel-item .reel-play .tri { width: 34px; height: 34px; }
+  .reel-item .reel-play .tri::after { left: 13px; top: 10px; }
   .grid3, .steps, .install, .two, .books { grid-template-columns: 1fr; }
   .book { gap: 14px; padding: 16px; }
   .cover { width: 78px; min-height: 112px; padding: 10px 8px; }

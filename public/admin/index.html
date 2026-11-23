@@ -83,7 +83,10 @@
     .nb { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--zero-ink); color: #fff; font: 700 .72rem/1 system-ui, sans-serif; font-style: normal; margin-left: 6px; }
     textarea, select, .inp { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; min-width: 0; }
     textarea { width: 100%; resize: vertical; }
-    .msg-layout { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 14px; align-items: start; }
+    .msg-layout { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
+    .tview, .tlist, .tview-head > div { min-width: 0; }
+    .tview, .titem, .msgs li { overflow-wrap: anywhere; }
+    .rep table th, .rep table td { white-space: normal; }
     .tlist { padding: 10px; } .tlist .chips { margin: 4px 4px 10px; }
     .titem { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; border: 0; background: none; padding: 10px 8px; border-radius: 10px; cursor: pointer; border-top: 1px solid var(--line); }
     .titem:first-of-type { border-top: 0; }
@@ -107,6 +110,17 @@
     .grid-form label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
     .wd label { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; font-size: .9rem; color: var(--ink); }
     @media (max-width: 760px) {
+      body { overflow-x: hidden; }
+      .tabs { flex-wrap: wrap; overflow: visible; }
+      .scroll { overflow-x: visible; }
+      /* широкие таблицы на телефоне — карточками: строка = карточка, столбец = подпись слева */
+      table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
+      table.stack tr:first-child { display: none; }
+      table.stack tr { border: 1px solid var(--line); border-radius: 12px; padding: 6px 12px; margin-bottom: 8px; }
+      table.stack td { display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 0; padding: 4px 0; white-space: normal; text-align: right; }
+      table.stack td::before { content: attr(data-label); color: var(--muted); font-size: .82rem; text-align: left; flex: none; max-width: 55%; }
+      table.stack td:empty { display: none; }
+      .hbar { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 3em; }
       h1 { font-size: 1.1rem; }
       header .btn { padding: 7px 10px; font-size: .88rem; }
       .msg-layout { grid-template-columns: 1fr; }
@@ -619,6 +633,19 @@ document.addEventListener('pointermove', (e) => {
   tip.style.left = x + 'px'; tip.style.top = (e.clientY - 36) + 'px'; tip.style.opacity = 1;
 });
 document.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
+
+// таблицы: подписи столбцов для показа карточками на телефоне (кроме маленьких таблиц снимка недели)
+function labelTables(root = document) {
+  root.querySelectorAll('table:not(.stack)').forEach((t) => {
+    if (t.closest('.rep')) return;
+    const head = t.querySelector('tr');
+    if (!head || !head.querySelector('th')) return;
+    const names = [...head.children].map((c) => c.textContent.trim());
+    t.querySelectorAll('tr').forEach((tr, i) => { if (i) [...tr.children].forEach((td, j) => { if (names[j]) td.dataset.label = names[j]; }); });
+    t.classList.add('stack');
+  });
+}
+new MutationObserver(() => labelTables($('app'))).observe($('app'), { childList: true, subtree: true });
 
 // запуск — в самом конце, когда все функции и константы уже объявлены
 if (token) load();

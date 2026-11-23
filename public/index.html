@@ -398,6 +398,10 @@
       fig.querySelector('.reel-play').addEventListener('click', () => {
         v.controls = true;
         fig.classList.add('playing');
+        if (matchMedia('(max-width: 860px)').matches) { // на телефоне — сразу на весь экран
+          v.removeAttribute('playsinline'); // iPhone откроет свой полноэкранный плеер
+          if (v.requestFullscreen && !/iPhone|iPad|iPod/.test(navigator.userAgent)) v.requestFullscreen().catch(() => {});
+        }
         v.play().catch(() => {});
       });
       v.addEventListener('play', () => reels.forEach((o) => { if (o !== v) o.pause(); })); // играет один ролик
