@@ -1,8 +1,11 @@
 // DCL-832: сервер (Cloudflare Worker). Хранит анонимные настройки, расписание сигналов
 // и — только при согласии пользователя — ответы. Статика (лендинг, PWA) отдаётся из ./public.
 
-import { sendPush, bytesToB64u } from './webpush.js';
+import { sendPush } from './webpush.js';
 import { isValidTz, localDate, nextLocalMidnight, planDay } from './schedule.js';
+import { json, err, HttpError, sha256, randomId, readJson, int, vapid } from './util.js';
+import { handleContact, handleAdminContact, deleteDeviceContact, remindBookings } from './contact.js';
+import { handleGoogleAuth } from './google.js';
 import STATIC from './static-files.js';
 
 const ANSWER_WINDOW_MIN = 30;           // сколько минут сигнал ждёт ответа
@@ -10,28 +13,6 @@ const SEND_GRACE_MS = 10 * 60_000;             // опоздавший боль�
 const CATEGORIES = ['work', 'study', 'food', 'road', 'home', 'care', 'sport', 'rest', 'screen', 'talk', 'other'];
 const PARTNERS = ['partner', 'child', 'parent', 'colleague', 'friend', 'other'];
 const L_KINDS = ['law', 'rules', 'norms']; // уточнение «нельзя»: закон, правила места или работы, нормы круга
-
-// ---------- утилиты ----------
-
-const json = (data, status = 200) => new Response(JSON.stringify(data), {
-  status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-});
-const err = (status, error) => json({ error }, status);
-
-async function sha256(s) {
-  return bytesToB64u(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
-}
-const randomId = (bytes = 16) => bytesToB64u(crypto.getRandomValues(new Uint8Array(bytes)));
-
-async function readJson(request, maxBytes = 256 * 1024) {
-  const text = await request.text();
-  if (text.length > maxBytes) throw new HttpError(413, 'too_large');
-  try { return text ? JSON.parse(text) : {}; } catch { throw new HttpError(400, 'bad_json'); }
-}
-
-class HttpError extends Error { constructor(status, code) { super(code); this.status = status; } }
-
-const int = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
 const PLATFORMS = ['android', 'ios', 'desktop', 'other'];
 function platformFromUA(ua = '') {
@@ -56,7 +37,7 @@ async function auth(request, env) {
   const h = request.headers.get('authorization') || '';
   const m = h.match(/^Bearer ([A-Za-z0-9_-]{10,64})\.([A-Za-z0-9_-]{20,128})$/);
   if (!m) throw new HttpError(401, 'unauthorized');
-  const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(m[1]).first();
+  const user = await env.DB.prepare('SELECT u.*, p.name AS profile_name FROM users u LEFT JOIN profiles p ON p.id = u.profile_id WHERE u.id = ?').bind(m[1]).first();
   if (!user || user.key_hash !== await sha256(m[2])) throw new HttpError(401, 'unauthorized');
   return user;
 }
@@ -65,6 +46,7 @@ function publicUser(u) {
   return {
     id: u.id, tz: u.tz, wake_start: u.wake_start, wake_end: u.wake_end, pings_per_day: u.pings_per_day,
     consent: !!u.consent, paused_until: u.paused_until, has_push: !!u.push_endpoint,
+    profile: u.profile_name ? { name: u.profile_name } : null,
   };
 }
 
@@ -109,7 +91,7 @@ function validateAnswer(a, now) {
 
 // ---------- API ----------
 
-async function handleApi(request, env, url) {
+async function handleApi(request, env, url, ctx) {
   const path = url.pathname.replace(/\/+$/, '');
   const method = request.method;
   const now = Date.now();
@@ -128,7 +110,11 @@ async function handleApi(request, env, url) {
     return json({ id, key, user: publicUser(user) }, 201);
   }
 
-  if (path.startsWith('/api/admin/')) return handleAdmin(request, env, path);
+  if (path.startsWith('/api/admin/google/') && method === 'GET') { // вход администратора через Google — без пароля
+    const r = await handleGoogleAuth(request, env, url, path);
+    if (r) return r;
+  }
+  if (path.startsWith('/api/admin/')) return handleAdmin(request, env, path, url, ctx);
 
   const user = await auth(request, env);
   if (now - (user.last_seen || 0) > 3600_000) {
@@ -148,6 +134,7 @@ async function handleApi(request, env, url) {
   }
 
   if (path === '/api/me' && method === 'DELETE') {
+    await deleteDeviceContact(env, user); // переписка, профиль и записи на консультацию
     await env.DB.batch([
       env.DB.prepare('DELETE FROM answers WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM pings WHERE user_id = ?').bind(user.id),
@@ -243,15 +230,37 @@ async function handleApi(request, env, url) {
     return json({ ok: true });
   }
 
+  const r = await handleContact(request, env, ctx, user, path, method, url);
+  if (r) return r;
+
   throw new HttpError(404, 'not_found');
 }
 
-// ---------- админка (для анализа паттернов) ----------
+// ---------- админка ----------
 
-async function handleAdmin(request, env, path) {
+/** Вход администратора: пароль ADMIN_TOKEN или сессия после входа через Google */
+async function adminAuth(request, env) {
   const token = (request.headers.get('authorization') || '').replace(/^Bearer /, '');
-  if (!env.ADMIN_TOKEN || token.length < 16 || token !== env.ADMIN_TOKEN) throw new HttpError(401, 'unauthorized');
+  if (env.ADMIN_TOKEN && token.length >= 16 && token === env.ADMIN_TOKEN) return { via: 'password' };
+  if (/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
+    const s = await env.DB.prepare('SELECT * FROM admin_sessions WHERE token_hash = ? AND expires_at > ?').bind(await sha256(token), Date.now()).first();
+    if (s) return { via: s.via, hash: s.token_hash };
+  }
+  throw new HttpError(401, 'unauthorized');
+}
+
+async function handleAdmin(request, env, path, url, ctx) {
+  const who = await adminAuth(request, env);
   const DB = env.DB;
+  const method = request.method;
+
+  if (path === '/api/admin/me' && method === 'GET') return json({ via: who.via });
+  if (path === '/api/admin/logout' && method === 'POST') {
+    if (who.hash) await DB.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').bind(who.hash).run();
+    return json({ ok: true });
+  }
+  const c = await handleAdminContact(request, env, ctx, path, method, url);
+  if (c) return c;
 
   if (path === '/api/admin/summary') {
     const now = Date.now(), DAY = 86400_000, since30 = now - 30 * DAY;
@@ -310,6 +319,7 @@ async function handleAdmin(request, env, path) {
   if (path === '/api/admin/devices') {
     const now = Date.now(), week = now - 7 * 86400_000;
     const { results } = await DB.prepare(`SELECT u.id, u.created_at, u.last_seen, u.platform, u.standalone, u.consent, u.pings_per_day,
+        (SELECT p.name FROM profiles p WHERE p.id = u.profile_id) AS profile_name,
         u.push_endpoint IS NOT NULL AS has_push, u.paused_until, u.tz, u.wake_start, u.wake_end,
         (SELECT COUNT(*) FROM pings p WHERE p.user_id = u.id AND p.scheduled_at > ?1 AND p.scheduled_at <= ?2
           AND p.status IN ('sent', 'answered', 'skipped', 'expired')) AS delivered_7d,
@@ -340,10 +350,6 @@ async function handleAdmin(request, env, path) {
 }
 
 // ---------- крон: планирование и рассылка сигналов ----------
-
-function vapid(env) {
-  return { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT || 'https://dcl832.click' };
-}
 
 async function runCron(env, now = Date.now()) {
   const DB = env.DB;
@@ -396,6 +402,9 @@ async function runCron(env, now = Date.now()) {
   updates.push(DB.prepare("UPDATE pings SET status = 'expired', closed_at = ? WHERE status = 'sent' AND scheduled_at < ?")
     .bind(now, now - ANSWER_WINDOW_MIN * 60_000));
   await DB.batch(updates);
+
+  // 4. Напоминание о консультации за час
+  try { stats.reminded = await remindBookings(env, now); } catch (e) { console.log('remind', String(e)); }
   return stats;
 }
 
@@ -481,7 +490,7 @@ export default {
     }
     if (url.pathname.startsWith('/api/')) {
       try {
-        return await handleApi(request, env, url);
+        return await handleApi(request, env, url, ctx);
       } catch (e) {
         if (e instanceof HttpError) return err(e.status, e.message);
         console.log('api error', e?.stack || String(e));
@@ -494,7 +503,7 @@ export default {
   },
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runCron(env, event.scheduledTime).then((s) => {
-      if (s.planned || s.sent || s.failed) console.log('cron', JSON.stringify(s));
+      if (s.planned || s.sent || s.failed || s.reminded) console.log('cron', JSON.stringify(s));
     }));
   },
 };

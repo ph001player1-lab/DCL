@@ -4,6 +4,8 @@ import { CATEGORIES, CATEGORY_LABEL, PARTNERS, PARTNER_LABEL, PARTNER_WITH, COMP
 import { kvGet, kvSet, put, get, all, since, putMany, clear } from './store.js';
 import { api, getCreds, setCreds, ApiError } from './api.js';
 import { summarize, targets, zeroCodes, lKinds, axes, dayParts, daysList, DAY_PARTS } from './stats.js';
+import { initContact, CONTACT_ROUTES, renderContact, contactAct, contactSubmit, refreshThreads, stopContactPoll,
+  loadProfileLocal, applyProfile, onPushMessage } from './contact.js';
 
 const $view = document.getElementById('view');
 const $tabs = document.getElementById('tabs');
@@ -21,6 +23,7 @@ const S = {
   ans: null,       // состояние экрана ответа
   period: 7,
   busy: false,
+  profile: null,   // профиль «Связи»: { name } или null (аноним)
 };
 
 // ---------- мелочи ----------
@@ -91,6 +94,7 @@ function applyServerUser(u) {
   if (!u) return;
   for (const k of ['wake_start', 'wake_end', 'pings_per_day', 'consent', 'paused_until', 'has_push', 'tz']) if (k in u) S.settings[k] = u[k];
   saveSettingsLocal();
+  if ('profile' in u) applyProfile(u.profile);
 }
 
 let registering = null;
@@ -160,6 +164,7 @@ async function syncAll() {
       return { ...l, id: p.id, t: p.t, exp: p.t + win, status };
     }));
     applyServerUser(await api('/api/me'));
+    await refreshThreads();
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) {
       await setCreds(null); // сервер нас не знает (данные удалены) — зарегистрируемся заново
@@ -206,10 +211,13 @@ function route() {
 function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
 
 async function render() {
+  stopContactPoll();
   if (!S.onboarded) { renderOnboarding(); return; }
   const { name, q } = route();
   $tabs.hidden = name === 'answer' || name === 'new';
-  for (const a of $tabs.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === name);
+  const tab = CONTACT_ROUTES.includes(name) ? 'chat' : name;
+  for (const a of $tabs.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === tab);
+  if (CONTACT_ROUTES.includes(name)) return renderContact(name, q);
   if (name === 'answer') return renderAnswer(q);
   if (name === 'new') return renderAnswer(new URLSearchParams());
   if (name === 'stats') return renderStats();
@@ -596,6 +604,11 @@ async function renderStats() {
       <div class="legend"><span><i class="dot b1"></i>без нулей</span><span><i class="dot b0"></i>с нулями</span>${s.unknown ? '<span><i class="dot bx"></i>неясно</span>' : ''}</div></section>` : ''}
     ${tg.topCodes.length ? `<section class="card"><h2>Частые коды</h2><ul class="codes">${tg.topCodes.map((c) => `
       <li><span class="code ${isFull(c.code) ? 'full' : hasZero(c.code) ? 'zero' : 'unk'}">${formatCode(c.code)}</span><span>${esc(decodeCode(c.code))}</span><b>×${c.n}</b></li>`).join('')}</ul></section>` : ''}
+    <section class="card"><h2>Разобраться в результатах</h2>
+      <p class="muted small-note">Приложение показывает только факты. Что они значат для вас и что можно изменить — обсудите со специалистом.</p>
+      <button class="btn primary wide" data-act="go" data-h="#book">Записаться на консультацию · бесплатно</button>
+      <button class="btn wide" data-act="go" data-h="#chat?new=specialist">Задать вопрос специалисту</button>
+      <a class="btn wide link" href="/books/potok-lyubvi.pdf" target="_blank" rel="noopener">Прочитать «Поток любви» — пособие по DCL (PDF)</a></section>
     <p class="muted small-note center">Цель DCL-терапии — заменить действия с нулями так, чтобы результат сохранился, а действия стали 111 или 11111.<br>Это инструмент самонаблюдения, не медицинская диагностика.</p>`;
 }
 
@@ -640,7 +653,7 @@ async function renderSettings() {
     <section class="card about"><h2>О методе</h2>
       <p><b>D</b> — желание, <b>C</b> — согласие, <b>L</b> — разрешение среды. Один — 3 знака, вдвоём — 5: D₁ C₁ D₂ C₂ L. Код с нулями — стресс в самом действии.</p>
       <p>Эустресс — действие, которое вы начали сами по желанию и с согласием (D=1, C=1). Связь кодов с аллостатической нагрузкой — гипотеза модели, а не медицинское измерение.</p>
-      <p><a href="/" target="_blank">О диагностике</a> · <a href="/#books" target="_blank">Книги</a> · <a href="https://t.me/DCL832" target="_blank" rel="noopener">Канал</a> · <a href="https://t.me/Nickbv" target="_blank" rel="noopener">Консультация</a></p>
+      <p><a href="/" target="_blank">О диагностике</a> · <a href="/#books" target="_blank">Книги</a> · <a href="https://t.me/DCL832" target="_blank" rel="noopener">Канал</a> · <a href="#chat">Связь и консультация</a></p>
     </section>`;
 }
 
@@ -661,7 +674,7 @@ async function exportCsv() {
 }
 
 async function wipe() {
-  if (!confirm('Удалить все ответы с телефона и с сервера? Это нельзя отменить.')) return;
+  if (!confirm('Удалить все ответы, переписку и профиль — с телефона и с сервера? Это нельзя отменить.')) return;
   try { if (await getCreds()) await api('/api/me', { method: 'DELETE' }); } catch (e) {
     if (!(e instanceof ApiError && e.status === 401)) { toast('Нет связи с сервером — попробуйте позже'); return; }
   }
@@ -676,6 +689,7 @@ document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-act]');
   if (!el || el.tagName === 'FORM') return;
   const act = el.dataset.act;
+  if (act.startsWith('c-') && await contactAct(act, el)) return;
   const o = S.ob, a = S.ans;
   switch (act) {
     case 'go': if (el.dataset.h === '#new') S.ans = null; go(el.dataset.h); break;
@@ -753,6 +767,8 @@ document.addEventListener('click', async (e) => {
 });
 
 document.addEventListener('submit', (e) => {
+  const cf = e.target.closest('form[data-act^="c-"]');
+  if (cf) { e.preventDefault(); contactSubmit(cf); return; }
   const f = e.target.closest('[data-act="label-form"]');
   if (!f) return;
   e.preventDefault();
@@ -792,13 +808,17 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (e) => {
     if (e.data?.type === 'open') { S.ans = null; location.hash = e.data.hash; }
     if (e.data?.type === 'ping' && route().name === 'today') render();
+    if (e.data?.type === 'msg') onPushMessage();
   });
 }
 
 // ---------- запуск ----------
 
+initContact({ S, $view, esc, toast, go, route, render, ensureRegistered, lastDates, plural, pct });
+
 (async function boot() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((e) => console.warn('sw', e));
+  await loadProfileLocal();
   const [settings, onboarded, labels, cfg] = await Promise.all([kvGet('settings'), kvGet('onboarded'), kvGet('customLabels'), kvGet('cfg')]);
   if (settings) S.settings = { ...DEFAULT_SETTINGS, ...settings };
   S.onboarded = !!onboarded;

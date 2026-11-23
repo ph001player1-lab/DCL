@@ -1,8 +1,8 @@
 // Service worker DCL-832: офлайн-работа, приём сигналов (push) и действия из уведомления.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = `dcl832-${VERSION}`;
 const SHELL = [
-  '/', '/site.css', '/app/', '/app/app.css', '/app/app.js', '/app/dcl.js', '/app/store.js', '/app/api.js', '/app/stats.js',
+  '/', '/site.css', '/app/', '/app/app.css', '/app/app.js', '/app/dcl.js', '/app/store.js', '/app/api.js', '/app/stats.js', '/app/contact.js',
   '/manifest.webmanifest', '/icons/icon-192.png', '/icons/badge-96.png',
 ];
 
@@ -78,10 +78,20 @@ async function apiCall(path, body) {
 const timeStr = (t) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 const answerHash = (d) => `#answer?p=${encodeURIComponent(d.id)}&t=${d.t}&exp=${d.exp}${d.test ? '&test=1' : ''}`;
 
-// ---------- сигнал ----------
+// ---------- сигнал, сообщения «Связи», уведомления администратора ----------
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch {}
+  if (d.type === 'msg' || d.type === 'admin') { // текст сообщения в уведомление не попадает — только «пришёл ответ»
+    e.waitUntil((async () => {
+      await self.registration.showNotification(d.title || 'DCL-832', {
+        body: d.body || '', tag: `dcl-${d.type}-${d.thread || ''}`, renotify: true,
+        icon: d.type === 'admin' ? '/icons/admin-192.png' : '/icons/icon-192.png', badge: '/icons/badge-96.png', data: d,
+      });
+      for (const c of await self.clients.matchAll({ type: 'window' })) c.postMessage({ type: d.type });
+    })());
+    return;
+  }
   e.waitUntil((async () => {
     if (d.type === 'ping' && !d.test) {
       const existing = await getPing(d.id).catch(() => null);
@@ -118,8 +128,15 @@ self.addEventListener('notificationclick', (e) => {
       await apiCall('/api/pause', { minutes: 120 }).catch(() => {});
       return;
     }
-    const hash = d.id ? answerHash(d) : '#today';
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (d.type === 'admin') { // админка: открыть переписку
+      const url = `/admin/${d.thread ? `#t=${encodeURIComponent(d.thread)}` : ''}`;
+      const adm = wins.find((w) => new URL(w.url).pathname.startsWith('/admin'));
+      if (adm) { await adm.focus(); adm.postMessage({ type: 'open-thread', thread: d.thread }); return; }
+      await self.clients.openWindow(url);
+      return;
+    }
+    const hash = d.type === 'msg' ? `#chat${d.thread ? `?t=${encodeURIComponent(d.thread)}` : ''}` : d.id ? answerHash(d) : '#today';
     const app = wins.find((w) => new URL(w.url).pathname.startsWith('/app'));
     if (app) {
       await app.focus();

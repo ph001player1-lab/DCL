@@ -283,3 +283,61 @@ h2 { font-size: 1.05rem; }
   .yn { min-width: 50px; }
   .card .big { font-size: 1.8rem; }
 }
+
+/* ---------- «Связь» ---------- */
+.tabs a { position: relative; }
+.tab-badge {
+  position: absolute; top: 0; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px;
+  background: var(--zero-ink); color: #fff; font: 700 .7rem/18px system-ui, sans-serif; font-style: normal; text-align: center;
+}
+.btn.link { display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; color: var(--ink); }
+.btn.primary.link { color: var(--accent-ink); }
+.btn.small { min-height: 40px; padding: 8px 14px; font-size: .92rem; }
+.intro p { margin: 0; }
+.topics { display: flex; flex-direction: column; gap: 8px; }
+.threads { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.threads li + li { border-top: 1px solid var(--line); }
+.thread-row {
+  width: 100%; border: 0; background: none; text-align: left; padding: 12px 0; display: grid;
+  grid-template-columns: 1fr auto; grid-template-areas: "head time" "last last"; gap: 4px 10px;
+}
+.thread-row .t-head { grid-area: head; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.thread-row .t-last { grid-area: last; color: var(--muted); font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-row time { grid-area: time; color: var(--muted); font-size: .8rem; white-space: nowrap; }
+.unread { font-style: normal; min-width: 20px; height: 20px; border-radius: 99px; background: var(--zero-ink); color: #fff; font-size: .75rem; font-weight: 700; display: inline-grid; place-items: center; padding: 0 6px; }
+.thread-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.thread-head h1 { font-size: 1.35rem; }
+.msgs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 86%; padding: 10px 14px; border-radius: 18px; display: flex; flex-direction: column; gap: 4px; }
+.msg p { margin: 0; overflow-wrap: anywhere; }
+.msg time { font-size: .75rem; color: var(--muted); align-self: flex-end; }
+.msg.me { align-self: flex-end; background: var(--one-soft); border-bottom-right-radius: 6px; }
+.msg.them { align-self: flex-start; background: var(--surface); box-shadow: var(--shadow); border-bottom-left-radius: 6px; }
+.msg.them > b { font-size: .8rem; color: var(--accent); }
+.msg.sys { align-self: center; max-width: 100%; width: 100%; background: var(--surface-2); text-align: center; align-items: center; border-radius: 14px; }
+.msg.sys time { align-self: center; }
+.msg.sys small { color: var(--muted); }
+.msg.booking { border: 2px solid var(--one-soft); }
+.report { display: flex; flex-direction: column; gap: 6px; }
+.report p { margin: 0; }
+.report small { color: var(--muted); font-size: .8rem; margin-top: 2px; }
+.rep-codes, .rep-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rep-codes li { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.rep-rows li { display: flex; flex-direction: column; font-size: .9rem; }
+.rep-rows span { color: var(--muted); font-size: .85rem; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.composer { display: flex; gap: 8px; align-items: flex-end; }
+.composer.big { flex-direction: column; align-items: stretch; }
+.composer textarea, .stack-form input, .add-row input {
+  flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px; font: inherit; color: inherit; resize: vertical;
+}
+.composer textarea { min-height: 48px; }
+.stack-form { display: flex; flex-direction: column; gap: 10px; }
+.stack-form input { font-size: 1.1rem; min-height: 52px; }
+.codebox {
+  font: 800 1.7rem/1.2 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .08em; text-align: center; padding: 18px 12px;
+  background: var(--surface); border: 2px dashed var(--accent); border-radius: var(--radius); user-select: all; overflow-wrap: anywhere;
+}
+.codebox.small { font-size: 1.3rem; padding: 12px; }
+.big-when { margin: 0; font-size: 1.15rem; font-weight: 700; }
+.hint a { color: inherit; font-weight: 700; }

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>DCL-832 · Админка</title>
+  <link rel="manifest" href="/admin/manifest.webmanifest">
+  <meta name="theme-color" content="#1c2220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="DCL Админ">
+  <link rel="apple-touch-icon" href="/icons/admin-apple.png">
+  <link rel="icon" href="/icons/admin-192.png" type="image/png">
   <style>
     :root {
       --bg: #f6f4ef; --surface: #fff; --surface-2: #efece5; --ink: #1c2220; --muted: #626a66; --line: #e3dfd6;
@@ -72,25 +79,69 @@
     #tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 10px; border-radius: 8px; font-size: .82rem; z-index: 10; white-space: nowrap; opacity: 0; transition: opacity .1s; }
     .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: .8rem; background: var(--surface-2); }
     .pill.g { background: var(--one-soft); }
+    .pill.z { background: color-mix(in srgb, var(--zero) 22%, transparent); }
+    .nb { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--zero-ink); color: #fff; font: 700 .72rem/1 system-ui, sans-serif; font-style: normal; margin-left: 6px; }
+    textarea, select, .inp { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; min-width: 0; }
+    textarea { width: 100%; resize: vertical; }
+    .msg-layout { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 14px; align-items: start; }
+    .tlist { padding: 10px; } .tlist .chips { margin: 4px 4px 10px; }
+    .titem { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; width: 100%; text-align: left; border: 0; background: none; padding: 10px 8px; border-radius: 10px; cursor: pointer; border-top: 1px solid var(--line); }
+    .titem:first-of-type { border-top: 0; }
+    .titem.cur { background: var(--surface-2); }
+    .titem > span:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+    .titem .snip { grid-column: 1 / -1; color: var(--muted); font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tview-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    .msgs { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+    .msgs li { max-width: 85%; padding: 9px 12px; border-radius: 14px; }
+    .msgs li p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .msgs li time { display: block; font-size: .74rem; color: var(--muted); margin-top: 3px; }
+    .msgs .u { align-self: flex-start; background: var(--surface-2); }
+    .msgs .a { align-self: flex-end; background: var(--one-soft); }
+    .msgs .s { align-self: center; max-width: 100%; background: transparent; border: 1px dashed var(--line); text-align: center; }
+    .rep { display: flex; flex-direction: column; gap: 6px; }
+    .rep table td, .rep table th { padding: 3px 10px 3px 0; font-size: .86rem; }
+    .back-list { display: none; }
+    .slots-day { margin: 6px 0 10px; }
+    .slots-day b { display: block; margin-bottom: 4px; }
+    .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .grid-form label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+    .wd label { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; font-size: .9rem; color: var(--ink); }
+    @media (max-width: 760px) {
+      h1 { font-size: 1.1rem; }
+      header .btn { padding: 7px 10px; font-size: .88rem; }
+      .msg-layout { grid-template-columns: 1fr; }
+      .msg-layout.has-cur .tlist { display: none; }
+      .msg-layout:not(.has-cur) .tview { display: none; }
+      .back-list { display: inline-block; }
+    }
   </style>
 </head>
 <body>
 <main>
-  <header><h1>DCL-832 · Админка</h1><button class="btn" id="logout" hidden>Выйти</button></header>
+  <header><h1>DCL-832 · Админка</h1><div class="row"><button class="btn" id="notif" hidden>Уведомления</button><button class="btn" id="logout" hidden>Выйти</button></div></header>
 
-  <form class="card row" id="login">
-    <input type="password" id="token" placeholder="Пароль (ADMIN_TOKEN)" autocomplete="current-password" style="flex:1;min-width:220px">
-    <label class="row small"><input type="checkbox" id="remember" checked> Запомнить на этом устройстве</label>
-    <button class="btn primary">Войти</button>
-    <p class="warn small" id="err" hidden style="width:100%;margin:0">Неверный пароль.</p>
-  </form>
+  <div class="card" id="login">
+    <div id="g-login" hidden style="margin-bottom:14px">
+      <a class="btn primary" href="/api/admin/google/start" style="display:inline-block;text-decoration:none">Войти через Google</a>
+      <p class="muted small" style="margin:8px 0 0">Вход по почте администратора. Или по паролю:</p>
+    </div>
+    <form class="row" id="pw-form">
+      <input type="password" id="token" placeholder="Пароль (ADMIN_TOKEN)" autocomplete="current-password" style="flex:1;min-width:220px">
+      <label class="row small"><input type="checkbox" id="remember" checked> Запомнить на этом устройстве</label>
+      <button class="btn primary">Войти</button>
+    </form>
+    <p class="warn small" id="err" hidden style="width:100%;margin:8px 0 0">Неверный пароль.</p>
+  </div>
 
   <div id="app" hidden>
     <div class="tabs" role="tablist">
-      <button data-tab="overview" class="on">Обзор</button><button data-tab="devices">Устройства</button>
+      <button data-tab="messages" class="on">Сообщения<i class="nb" id="msg-badge" hidden></i></button><button data-tab="booking">Запись</button>
+      <button data-tab="overview">Обзор</button><button data-tab="devices">Устройства</button>
       <button data-tab="method">Метод</button><button data-tab="load">Нагрузка</button>
     </div>
-    <section id="tab-overview"></section>
+    <section id="tab-messages"></section>
+    <section id="tab-booking" hidden></section>
+    <section id="tab-overview" hidden></section>
     <section id="tab-devices" hidden></section>
     <section id="tab-method" hidden></section>
     <section id="tab-load" hidden></section>
@@ -111,34 +162,73 @@ const STATUS = { sent: 'ждут ответа', answered: 'отвечено', sk
 let token = '';
 try { token = localStorage.getItem('dcl-admin') || sessionStorage.getItem('dcl-admin') || ''; } catch {}
 let DATA = null, DEVICES = null, filter = 'all';
+const TABS = ['messages', 'booking', 'overview', 'devices', 'method', 'load'];
 
-$('login').addEventListener('submit', async (e) => {
+// вход через Google возвращает сюда: #session=… или #error=…
+(() => {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('session')) {
+    token = h.get('session');
+    try { localStorage.setItem('dcl-admin', token); } catch {}
+    history.replaceState(null, '', '/admin/');
+  } else if (h.get('error')) {
+    const ERR = { not_admin: 'Эта почта Google не совпадает с почтой администратора.', state: 'Вход прервался — попробуйте ещё раз.',
+      denied: 'Вход отменён.', not_configured: 'Вход через Google ещё не настроен (нужны ключи Google).', token: 'Google не подтвердил вход — попробуйте ещё раз.' };
+    $('err').textContent = ERR[h.get('error')] || 'Не удалось войти.'; $('err').hidden = false;
+    history.replaceState(null, '', '/admin/');
+  }
+})();
+fetch('/api/admin/google/status').then((r) => r.json()).then((d) => { $('g-login').hidden = !d.configured; }).catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+
+$('pw-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   token = $('token').value.trim();
-  if (await load()) {
+  if (await load(true)) {
     try { ($('remember').checked ? localStorage : sessionStorage).setItem('dcl-admin', token); } catch {}
   }
 });
-$('logout').addEventListener('click', () => {
+$('logout').addEventListener('click', async () => {
+  await send('/api/admin/logout', 'POST').catch(() => {});
   try { localStorage.removeItem('dcl-admin'); sessionStorage.removeItem('dcl-admin'); } catch {}
-  location.reload();
+  location.replace('/admin/');
 });
+function showTab(name) {
+  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === name));
+  TABS.forEach((t) => { $('tab-' + t).hidden = t !== name; });
+}
 document.querySelector('.tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
-  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
-  ['overview', 'devices', 'method', 'load'].forEach((t) => { $('tab-' + t).hidden = t !== b.dataset.tab; });
+  showTab(b.dataset.tab);
+  if (b.dataset.tab === 'booking') loadBooking();
 });
 if (token) load();
 
 const get = (p) => fetch(p, { headers: { authorization: 'Bearer ' + token } });
+async function send(p, method, body) {
+  const r = await fetch(p, { method, headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'http_' + r.status);
+  return d;
+}
 
-async function load() {
+async function load(fromPassword = false) {
   const [r1, r2] = await Promise.all([get('/api/admin/summary'), get('/api/admin/devices')]);
-  if (!r1.ok || !r2.ok) { $('err').hidden = false; $('login').hidden = false; return false; }
+  if (!r1.ok || !r2.ok) {
+    $('login').hidden = false;
+    if (r1.status === 401 && token) {
+      $('err').textContent = fromPassword ? 'Неверный пароль.' : 'Нужно войти заново.'; $('err').hidden = false;
+      try { localStorage.removeItem('dcl-admin'); sessionStorage.removeItem('dcl-admin'); } catch {}
+    }
+    return false;
+  }
   DATA = await r1.json(); DEVICES = (await r2.json()).devices;
-  $('login').hidden = true; $('app').hidden = false; $('logout').hidden = false;
+  $('login').hidden = true; $('app').hidden = false; $('logout').hidden = false; $('notif').hidden = false;
   renderOverview(); renderDevices(); renderMethod(); renderLoad();
   $('updated').textContent = 'Обновлено: ' + new Date(DATA.now).toLocaleString('ru-RU');
+  await loadThreads();
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('t')) { history.replaceState(null, '', '/admin/'); openThread(h.get('t')); }
   return true;
 }
 
@@ -217,23 +307,24 @@ function renderOverview() {
 }
 
 // ---------- Устройства ----------
-const FILTERS = [['all', 'Все'], ['active', 'Активны 7 дн.'], ['app', 'Как приложение'], ['browser', 'В браузере'], ['nopush', 'Сигналы выключены']];
+const FILTERS = [['all', 'Все'], ['active', 'Активны 7 дн.'], ['app', 'Как приложение'], ['browser', 'В браузере'], ['nopush', 'Сигналы выключены'], ['profile', 'С профилем']];
 function renderDevices() {
   const week = Date.now() - 7 * 86400_000;
   const ok = (d) => filter === 'all' || (filter === 'active' && d.last_seen > week) || (filter === 'app' && d.standalone === 1)
-    || (filter === 'browser' && d.standalone === 0) || (filter === 'nopush' && !d.has_push);
+    || (filter === 'browser' && d.standalone === 0) || (filter === 'nopush' && !d.has_push) || (filter === 'profile' && d.profile_name);
   const list = DEVICES.filter(ok);
   const signals = (d) => !d.has_push ? '<span class="warn">выкл.</span>' : d.paused_until > Date.now() ? 'пауза' : `${d.pings_per_day} в день`;
   const win = (d) => `${String(Math.floor(d.wake_start / 60)).padStart(2, '0')}:${String(d.wake_start % 60).padStart(2, '0')}–${String(Math.floor(d.wake_end / 60)).padStart(2, '0')}:${String(d.wake_end % 60).padStart(2, '0')}`;
   $('tab-devices').innerHTML = `
     <div class="card">
-      <div class="card-head"><h2>Устройства</h2><span class="muted small">Показано ${list.length} из ${DEVICES.length}. Пользователи анонимны: только случайный номер устройства.</span></div>
+      <div class="card-head"><h2>Устройства</h2><span class="muted small">Показано ${list.length} из ${DEVICES.length}. Случайный номер устройства; имя — только у тех, кто сам создал профиль.</span></div>
       <div class="chips" style="margin-bottom:12px">${FILTERS.map(([k, l]) => `<button class="chip ${filter === k ? 'on' : ''}" data-filter="${k}">${l}</button>`).join('')}</div>
       <div class="scroll"><table>
-        <tr><th>№</th><th>Платформа</th><th>Запуск</th><th>Установлено</th><th>Последний вход</th><th>Сигналы</th><th>Окно</th>
+        <tr><th>№</th><th>Профиль</th><th>Платформа</th><th>Запуск</th><th>Установлено</th><th>Последний вход</th><th>Сигналы</th><th>Окно</th>
           <th class="num">Ответы на сигналы, 7 дн.</th><th class="num">Записей</th><th class="num">Уровень свободы</th><th>Согласие</th></tr>
         ${list.map((d) => `<tr>
           <td><code>${esc(d.id)}</code></td>
+          <td>${d.profile_name ? esc(d.profile_name) : '<span class="muted">—</span>'}</td>
           <td>${PLAT[d.platform || 'unknown'] || esc(d.platform)}</td>
           <td>${d.standalone === 1 ? '<span class="pill g">приложение</span>' : d.standalone === 0 ? '<span class="pill">браузер</span>' : '—'}</td>
           <td>${date(d.created_at)}</td>
@@ -306,6 +397,204 @@ function renderLoad() {
       <p class="small">100 000 запросов в сутки · 10 мс процессора на вызов · база D1: 5 ГБ, 5 млн чтений и 100 000 записей строк в сутки.
       Для сотен пользователей запас многократный. Точные графики запросов и ошибок: <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">dash.cloudflare.com</a> → Workers &amp; Pages → dcl832 → Metrics.</p></div>`;
 }
+
+// ---------- Сообщения ----------
+const TOPIC = { support: 'Поддержка', idea: 'Идея', specialist: 'Специалист' };
+const STATUSES = {
+  support: [['new', 'новое'], ['open', 'в работе'], ['done', 'решено']],
+  idea: [['new', 'новая'], ['accepted', 'принята'], ['in_progress', 'в работе'], ['done', 'сделана'], ['declined', 'пока не в планах']],
+  specialist: [['new', 'новое'], ['open', 'идёт разговор'], ['done', 'завершено']],
+};
+const statusLabel = (topic, s) => (STATUSES[topic].find(([k]) => k === s) || [, s])[1];
+let THREADS = [], tfilter = 'all', CUR = null;
+const when = (t) => new Date(t).toLocaleString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+const hm = (t) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const safeUrl = (u) => (typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u) ? u : null);
+const who = (t) => (t.name ? esc(t.name) : `<span class="muted">аноним №${esc(t.device)}</span>`);
+
+async function loadThreads() {
+  try {
+    const d = await send('/api/admin/threads', 'GET');
+    THREADS = d.threads;
+    $('msg-badge').hidden = !d.unread; $('msg-badge').textContent = d.unread;
+    renderMessages();
+  } catch (e) { console.warn(e); }
+}
+
+function renderMessages() {
+  const F = [['all', 'Все'], ['unread', 'Непрочитанные'], ['specialist', 'Специалист'], ['idea', 'Идеи'], ['support', 'Поддержка']];
+  const list = THREADS.filter((t) => tfilter === 'all' || (tfilter === 'unread' ? t.unread : t.topic === tfilter));
+  const last = (t) => !t.last ? '' : t.last.kind === 'report' ? '📊 Снимок недели' : t.last.kind === 'booking' ? '📅 Запись на консультацию'
+    : t.last.kind === 'booking_cancel' ? 'Запись отменена' : t.last.kind === 'status' ? 'Статус изменён' : `${t.last.author === 'admin' ? 'Вы: ' : ''}${t.last.body}`;
+  $('tab-messages').innerHTML = `<div class="msg-layout ${CUR ? 'has-cur' : ''}">
+    <div class="card tlist">
+      <div class="chips">${F.map(([k, l]) => `<button class="chip ${tfilter === k ? 'on' : ''}" data-tf="${k}">${l}</button>`).join('')}</div>
+      ${list.map((t) => `<button class="titem ${CUR?.thread.id === t.id ? 'cur' : ''}" data-open="${esc(t.id)}">
+        <span><span class="pill ${t.topic === 'specialist' ? 'g' : t.topic === 'support' ? 'z' : ''}">${TOPIC[t.topic]}</span> ${who(t)}${t.unread ? `<i class="nb">${t.unread}</i>` : ''}</span>
+        <span class="muted small">${ago(t.updated_at)}</span><span class="snip">${esc(last(t))}</span></button>`).join('') || '<p class="muted">Пока нет сообщений.</p>'}
+    </div>
+    <div class="card tview" id="tview">${CUR ? threadHtml() : '<p class="muted">Выберите переписку слева.</p>'}</div></div>`;
+  $('tab-messages').querySelectorAll('[data-tf]').forEach((b) => b.addEventListener('click', () => { tfilter = b.dataset.tf; renderMessages(); }));
+  $('tab-messages').querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => openThread(b.dataset.open)));
+  bindThread();
+}
+
+function reportHtml(r) {
+  if (!r) return '';
+  const pc = (k, n) => (n ? Math.round((k / n) * 100) + '%' : '—');
+  const lk = r.l_kinds || {}, ax = r.axes || {};
+  return `<div class="rep"><b>Снимок: ${r.days} дн. (${esc(r.from)} — ${esc(r.to)})</b>
+    <div>${r.n} действий · без нулей ${r.full} (${pc(r.full, r.n)}) · с нулями ${r.zero}${r.unknown ? ` · неясно ${r.unknown}` : ''}</div>
+    <div class="small">Оси «да»: D ${ax.d1 ?? '—'} · C ${ax.c1 ?? '—'} · L ${ax.l ?? '—'} из ${ax.n ?? r.n} · «нельзя»: закон ${lk.law || 0}, правила ${lk.rules || 0}, нормы ${lk.norms || 0}${lk.none ? `, не уточнено ${lk.none}` : ''}</div>
+    ${(r.zero_codes || []).length ? `<table><tr><th>Код</th><th>Раз</th><th>Дней</th><th></th></tr>${r.zero_codes.map((c) => `<tr><td><code>${esc(c.code)}</code></td><td>${c.n}</td><td>${c.days}</td><td>${c.regular ? 'регулярно' : 'разово'}</td></tr>`).join('')}</table>` : ''}
+    ${(r.by_category || []).length ? `<table><tr><th>Где</th><th>Всего</th><th>С нулями</th><th>Чаще ноль</th></tr>${r.by_category.map((g) => `<tr><td>${esc(g.label)}</td><td>${g.n}</td><td>${g.zero}</td><td>${esc({ d1: 'D', c1: 'C', l: 'L', d2: 'D₂', c2: 'C₂' }[g.top] || '—')}</td></tr>`).join('')}</table>` : ''}
+    ${(r.by_partner || []).length ? `<table><tr><th>С кем</th><th>Всего</th><th>Не 11111</th><th>«не знаю»</th></tr>${r.by_partner.map((g) => `<tr><td>${esc(g.label)}</td><td>${g.n}</td><td>${g.n - g.full}</td><td>${g.unknown}</td></tr>`).join('')}</table>` : ''}
+  </div>`;
+}
+
+function threadHtml() {
+  const { thread: t, owner: o, messages, bookings } = CUR;
+  const cancelled = new Set(messages.filter((m) => m.kind === 'booking_cancel').map((m) => m.data?.booking));
+  const item = (m) => {
+    const time = `<time>${when(m.created_at)}</time>`;
+    if (m.kind === 'report') return `<li class="u">${reportHtml(m.data)}${time}</li>`;
+    if (m.kind === 'booking') {
+      const d = m.data || {}, meet = safeUrl(d.meet);
+      return `<li class="s"><b>📅 Запись: ${when(d.start)}–${hm(d.end)}</b>${cancelled.has(d.booking) ? ' <span class="muted">(отменена)</span>' : ''}${meet ? `<p><a href="${esc(meet)}" target="_blank" rel="noopener">${esc(meet)}</a></p>` : ''}${time}</li>`;
+    }
+    if (m.kind === 'booking_cancel') return `<li class="s">Запись на ${when(m.data?.start)} отменена ${m.data?.by === 'admin' ? 'вами' : 'пользователем'}${time}</li>`;
+    if (m.kind === 'status') return `<li class="s">Статус: ${esc(statusLabel('idea', m.data?.status))} — пользователь получил уведомление${time}</li>`;
+    return `<li class="${m.author === 'admin' ? 'a' : 'u'}"><p>${esc(m.body)}</p>${time}</li>`;
+  };
+  const ownerText = o.name ? `<b>${esc(o.name)}</b> · профиль, устройств: ${o.profile_devices}` : `<b>Аноним</b> · устройство №${esc(o.device)}`;
+  return `<button class="btn back-list" data-back>← К списку</button>
+    <div class="tview-head"><div><span class="pill">${TOPIC[t.topic]}</span> ${ownerText}<div class="muted small">${PLAT[o.platform || 'unknown'] || esc(o.platform || '')} · начато ${when(t.created_at)}</div></div>
+      <label class="row small">Статус <select id="t-status">${STATUSES[t.topic].map(([k, l]) => `<option value="${k}" ${k === t.status ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    ${bookings.length ? `<p class="small">Ближайшая запись: <b>${when(bookings[0].start)}</b>${safeUrl(bookings[0].meet) ? ` · <a href="${esc(bookings[0].meet)}" target="_blank" rel="noopener">видеовстреча</a>` : ''}</p>` : ''}
+    <ul class="msgs" id="t-msgs">${messages.map(item).join('')}</ul>
+    <form id="t-reply"><textarea id="t-body" rows="4" maxlength="4000" placeholder="Ответ — придёт пользователю уведомлением"></textarea>
+      <div class="row" style="margin-top:8px;justify-content:space-between"><button class="btn primary">Отправить</button>
+      <button class="btn" type="button" id="t-del" style="color:var(--zero-ink)">Удалить переписку</button></div></form>`;
+}
+
+function bindThread() {
+  if (!CUR) return;
+  const box = $('t-msgs'); if (box) box.scrollTop = box.scrollHeight;
+  document.querySelector('[data-back]')?.addEventListener('click', () => { CUR = null; renderMessages(); });
+  $('t-status')?.addEventListener('change', async (e) => {
+    try { await send(`/api/admin/threads/${CUR.thread.id}`, 'PUT', { status: e.target.value }); await openThread(CUR.thread.id); loadThreads(); } catch (er) { alert('Не удалось: ' + er.message); }
+  });
+  $('t-reply')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = $('t-body').value.trim(); if (!body) return;
+    const btn = e.target.querySelector('button.primary'); btn.disabled = true;
+    try { await send(`/api/admin/threads/${CUR.thread.id}/messages`, 'POST', { body }); await openThread(CUR.thread.id); loadThreads(); }
+    catch (er) { alert('Не отправлено: ' + er.message); btn.disabled = false; }
+  });
+  $('t-del')?.addEventListener('click', async () => {
+    if (!confirm('Удалить переписку целиком? Пользователь её тоже больше не увидит.')) return;
+    await send(`/api/admin/threads/${CUR.thread.id}/delete`, 'POST'); CUR = null; loadThreads();
+  });
+}
+
+async function openThread(id) {
+  try {
+    const draft = $('t-body')?.value;
+    CUR = await send(`/api/admin/threads/${encodeURIComponent(id)}`, 'GET');
+    showTab('messages'); renderMessages();
+    if (draft && CUR) $('t-body').value = draft;
+    const th = THREADS.find((x) => x.id === id); if (th && th.unread) { th.unread = 0; loadThreads(); }
+  } catch { alert('Переписка не найдена'); }
+}
+
+// ---------- Запись ----------
+let BOOK = null;
+const WD = [[1, 'пн'], [2, 'вт'], [3, 'ср'], [4, 'чт'], [5, 'пт'], [6, 'сб'], [7, 'вс']];
+const mm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const toMin = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+
+async function loadBooking() {
+  try { BOOK = await send('/api/admin/booking', 'GET'); renderBooking(); } catch (e) { $('tab-booking').innerHTML = `<p class="warn">Не загрузилось: ${esc(e.message)}</p>`; }
+}
+function renderBooking() {
+  const g = BOOK.google, c = BOOK.config;
+  const inTz = (t, o) => new Date(t).toLocaleString('ru-RU', { timeZone: c.tz, ...o });
+  const googleCard = !BOOK.configured
+    ? `<p>Вход через Google и календарь ещё не настроены: в Cloudflare нужно добавить секреты <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> и <code>ADMIN_EMAIL</code> (см. инструкцию).</p>`
+    : g.connected ? `<p class="ok">● Календарь подключён: ${esc(g.email)} · с ${new Date(g.connected_at).toLocaleDateString('ru-RU')}</p>
+        <div class="row"><a class="btn" href="/api/admin/google/start?mode=connect">Переподключить</a><button class="btn" id="g-off">Отключить</button></div>`
+    : `<p class="${g.status ? 'warn' : ''}">${g.status === 'expired' ? 'Доступ к календарю истёк или отозван — подключите заново.' : g.status === 'no_calendar_scope' ? 'При входе не был выдан доступ к календарю — подключите и отметьте галочку календаря.' : 'Календарь не подключён — пользователи не видят свободное время.'}</p>
+        <a class="btn primary" href="/api/admin/google/start?mode=connect" style="display:inline-block;text-decoration:none">Подключить Google-календарь</a>`;
+  $('tab-booking').innerHTML = `
+    <div class="card"><h2>Google-календарь</h2>${googleCard}
+      <p class="muted small">Свободные окна = часы приёма минус занятое время в основном календаре. Запись создаёт встречу с Google Meet; у пользователя ссылка появляется в переписке.</p></div>
+    <div class="card"><h2>Часы приёма</h2>
+      <form id="b-form" class="grid-form">
+        <label>Часовой пояс<input class="inp" id="b-tz" value="${esc(c.tz)}"></label>
+        <label>С<input class="inp" type="time" id="b-start" value="${mm(c.start)}"></label>
+        <label>До<input class="inp" type="time" id="b-end" value="${mm(c.end === 1440 ? 1439 : c.end)}"></label>
+        <label>Длительность, мин<input class="inp" type="number" min="15" max="240" id="b-dur" value="${c.duration}"></label>
+        <label>Шаг начала, мин<input class="inp" type="number" min="15" max="240" id="b-step" value="${c.step}"></label>
+        <label>Не позже чем за, мин<input class="inp" type="number" min="0" max="2880" id="b-lead" value="${c.lead}"></label>
+        <label>Дней вперёд (с сегодня)<input class="inp" type="number" min="1" max="7" id="b-days" value="${c.days}"></label>
+        <div class="wd" style="grid-column:1/-1">${WD.map(([d, l]) => `<label><input type="checkbox" value="${d}" ${c.weekdays.includes(d) ? 'checked' : ''}>${l}</label>`).join('')}</div>
+        <div><button class="btn primary">Сохранить</button></div>
+      </form></div>
+    <div class="card"><div class="card-head"><h2>Свободные окна сейчас</h2><button class="btn" id="b-prev">Показать</button></div><div id="b-slots" class="small muted">Так их видят пользователи (время в поясе ${esc(c.tz)}).</div></div>
+    <div class="card"><h2>Ближайшие записи</h2>
+      ${BOOK.upcoming.length ? `<div class="scroll"><table><tr><th>Когда</th><th>Кто</th><th>Встреча</th><th></th></tr>${BOOK.upcoming.map((b) => `<tr>
+        <td>${inTz(b.start, { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</td><td>${esc(b.name || '—')}</td>
+        <td>${safeUrl(b.meet) ? `<a href="${esc(b.meet)}" target="_blank" rel="noopener">Meet</a>` : '—'}</td>
+        <td class="row">${b.thread ? `<button class="btn" data-open-t="${esc(b.thread)}">Переписка</button>` : ''}<button class="btn" data-cancel="${esc(b.id)}">Отменить</button></td></tr>`).join('')}</table></div>` : '<p class="muted">Записей нет.</p>'}</div>`;
+  $('g-off')?.addEventListener('click', async () => { if (confirm('Отключить календарь? Запись станет недоступна.')) { await send('/api/admin/google/disconnect', 'POST'); loadBooking(); } });
+  $('b-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const end = toMin($('b-end').value);
+    const body = { tz: $('b-tz').value.trim(), start: toMin($('b-start').value), end: end === 1439 ? 1440 : end, duration: +$('b-dur').value, step: +$('b-step').value,
+      lead: +$('b-lead').value, days: +$('b-days').value, weekdays: [...document.querySelectorAll('.wd input:checked')].map((x) => +x.value) };
+    try { await send('/api/admin/booking', 'PUT', body); alert('Сохранено'); loadBooking(); } catch (er) { alert('Проверьте поля: ' + er.message); }
+  });
+  $('b-prev').addEventListener('click', async () => {
+    $('b-slots').textContent = 'Загружаю…';
+    try {
+      const d = await send('/api/admin/booking/preview', 'GET');
+      if (!d.available) { $('b-slots').textContent = 'Календарь не подключён.'; return; }
+      const days = new Map();
+      for (const s of d.slots) { const k = inTz(s.start, { weekday: 'long', day: 'numeric', month: 'long' }); if (!days.has(k)) days.set(k, []); days.get(k).push(inTz(s.start, { hour: '2-digit', minute: '2-digit' })); }
+      $('b-slots').innerHTML = days.size ? [...days].map(([k, v]) => `<div class="slots-day"><b>${esc(k)}</b>${v.join(' · ')}</div>`).join('') : 'Свободных окон нет.';
+    } catch (er) { $('b-slots').textContent = 'Календарь не ответил: ' + er.message; }
+  });
+  document.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Отменить запись? Встреча удалится из календаря, пользователь получит уведомление.')) return;
+    await send(`/api/admin/bookings/${b.dataset.cancel}/cancel`, 'POST'); loadBooking(); loadThreads();
+  }));
+  document.querySelectorAll('[data-open-t]').forEach((b) => b.addEventListener('click', () => openThread(b.dataset.openT)));
+}
+
+// ---------- уведомления на телефон администратора ----------
+$('notif').addEventListener('click', async () => {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      alert('Этот браузер не поддерживает уведомления. На iPhone сначала добавьте админку на экран «Домой» (Поделиться → На экран «Домой») и откройте её оттуда.'); return;
+    }
+    if (await Notification.requestPermission() !== 'granted') { alert('Уведомления не разрешены в настройках браузера.'); return; }
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+    const { vapidPublicKey } = await (await fetch('/api/config')).json();
+    const key = Uint8Array.from(atob(vapidPublicKey.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - vapidPublicKey.length % 4) % 4)), (c) => c.charCodeAt(0));
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    await send('/api/admin/push', 'POST', sub.toJSON());
+    await send('/api/admin/push/test', 'POST');
+    $('notif').textContent = 'Уведомления включены';
+  } catch (e) { alert('Не удалось включить уведомления: ' + e.message); }
+});
+
+// обновление: push от сервиса уведомлений и раз в 30 секунд, пока админка открыта
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => {
+  if (e.data?.type === 'admin') { loadThreads(); if (CUR) openThread(CUR.thread.id); }
+  if (e.data?.type === 'open-thread' && e.data.thread) openThread(e.data.thread);
+});
+setInterval(() => { if (document.visibilityState === 'visible' && !$('app').hidden) loadThreads(); }, 30000);
 
 // ---------- подсказки при наведении ----------
 const tip = $('tip');
