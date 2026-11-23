@@ -1,5 +1,5 @@
 // Service worker DCL-832: офлайн-работа, приём сигналов (push) и действия из уведомления.
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = `dcl832-${VERSION}`;
 const SHELL = [
   '/', '/site.css', '/app/', '/app/app.css', '/app/app.js', '/app/dcl.js', '/app/store.js', '/app/api.js', '/app/stats.js', '/app/contact.js',

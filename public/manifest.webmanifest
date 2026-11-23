@@ -5,7 +5,7 @@
   "description": "Случайные замеры в течение дня: где в вашем дне копится стресс и ваш уровень свободы — доля действий без нулей.",
   "lang": "ru",
   "start_url": "/app/",
-  "scope": "/",
+  "scope": "/app/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f6f4ef",
