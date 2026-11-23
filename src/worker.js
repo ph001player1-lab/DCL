@@ -4,7 +4,7 @@
 import { sendPush } from './webpush.js';
 import { isValidTz, localDate, nextLocalMidnight, planDay } from './schedule.js';
 import { json, err, HttpError, sha256, randomId, readJson, int, vapid } from './util.js';
-import { handleContact, handleAdminContact, deleteDeviceContact, remindBookings } from './contact.js';
+import { handleContact, handleAdminContact, handleProContact, deleteDeviceContact, remindBookings } from './contact.js';
 import { handleGoogleAuth } from './google.js';
 import STATIC from './static-files.js';
 
@@ -109,6 +109,8 @@ async function handleApi(request, env, url, ctx) {
     const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
     return json({ id, key, user: publicUser(user) }, 201);
   }
+
+  if (path === '/api/pro-contact' && method === 'POST') return handleProContact(request, env, ctx); // форма на /specialists/
 
   if (path.startsWith('/api/admin/google/') && method === 'GET') { // вход администратора через Google — без пароля
     const r = await handleGoogleAuth(request, env, url, path);
@@ -432,7 +434,7 @@ async function serveBook(request, env, url) {
 
 // ---------- видео (MP4 в том же KV; поддержка Range — нужна Safari для перемотки) ----------
 
-const MEDIA = { 'dcl832.mp4': 'video/mp4', 'dcl832-1.mp4': 'video/mp4', 'dcl832-2.mp4': 'video/mp4', 'dcl832-3.mp4': 'video/mp4' };
+const MEDIA = { 'dcl832.mp4': 'video/mp4', 'dcl832-1.mp4': 'video/mp4', 'dcl832-2.mp4': 'video/mp4', 'dcl832-3.mp4': 'video/mp4', 'dcl832-4.mp4': 'video/mp4' };
 
 async function serveMedia(request, env, url) {
   const key = url.pathname.slice('/media/'.length);
@@ -464,7 +466,8 @@ const NO_CACHE = /\.(html|js|css|webmanifest)$/;
 function serveStatic(request, url) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method Not Allowed', { status: 405 });
   let path = decodeURIComponent(url.pathname);
-  if (['/app', '/admin', '/webinar', '/privacy', '/terms'].includes(path)) return Response.redirect(`${url.origin}${path}/${url.search}`, 301);
+  if (path === '/webinar' || path.startsWith('/webinar/')) return Response.redirect(`${url.origin}/specialists/`, 301); // вебинар заменён разделом для специалистов
+  if (['/app', '/admin', '/privacy', '/terms', '/specialists'].includes(path)) return Response.redirect(`${url.origin}${path}/${url.search}`, 301);
   if (path.endsWith('/')) path += 'index.html';
   const f = STATIC[path];
   const headers = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin' };

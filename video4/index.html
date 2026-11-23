@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>DCL-832 — ролик 4: рентген повседневной жизни</title>
+<style>
+  @font-face { font-family: 'InterV'; src: url('../video/fonts/Inter[opsz,wght].ttf') format('truetype'); font-weight: 100 900; }
+  @font-face { font-family: 'MonoV'; src: url('../video/fonts/JetBrainsMono[wght].ttf') format('truetype'); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #f6f4ef; }
+  body { font-family: 'InterV', 'Inter', system-ui, sans-serif; color: #1c2220; -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: radial-gradient(1100px 900px at 50% 40%, #fbfaf6 0%, #f6f4ef 65%); }
+  svg { position: absolute; left: 0; top: 0; }
+  svg text { font-family: 'InterV', 'Inter', sans-serif; }
+  svg .mono { font-family: 'MonoV', 'JetBrains Mono', monospace; }
+  #brand { position: absolute; left: 64px; top: 72px; font-weight: 800; font-size: 34px; letter-spacing: .06em; color: #0f7a4a; }
+  .title { position: absolute; left: 64px; right: 64px; top: 170px; font-size: 76px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.06; }
+  .title .g { color: #0f7a4a; }
+  .title small { display: block; font-size: 36px; font-weight: 500; color: #56605b; letter-spacing: 0; margin-top: 14px; }
+  #cap { position: absolute; left: 70px; right: 70px; top: 1500px; text-align: center; font-size: 58px; font-weight: 800; line-height: 1.22; letter-spacing: -0.01em; }
+  #cap span { color: rgba(28,34,32,.3); }
+  #cap span.on { color: #1c2220; }
+  #cap span.cur { color: #0f7a4a; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920"></svg>
+  <div id="brand">DCL-832</div>
+  <div id="titles"></div>
+  <div id="cap"></div>
+</div>
+<script>
+// ===================== тайминги озвучки (секунды) =====================
+const T = {
+  leg: 2.38, doctor: 3.78, xray: 5.96, inside: 7.48,
+  s3: 8.4, stress: 10.82,
+  s4: 12.76, between: 13.62, memory: 16.94,
+  s5: 17.98, v1: 19.2, v2: 21.04, v3: 23.22,
+  dcl: 26.06, ping: 27.9, three: 31.14, q1: 34.02, q2: 35.64, q3: 37.28,
+  week: 38.6, zeros: 41.1, where: 42.44, whom: 43.06,
+  nodx: 44.0, data: 47.72,
+  s10: 51.0, but: 53.64, why: 54.48, again: 55.48, there: 57.2,
+  fin: 59.5, END: 65,
+};
+
+// ===================== помощники =====================
+const C_ = { ink: '#1c2220', muted: '#56605b', paper: '#f6f4ef', card: '#fbfaf6', line: '#e3dfd6', floor: '#ece8df',
+  one: '#0f7a4a', oneSoft: '#dcefe5', zero: '#e5824f', zeroInk: '#a4461b', zeroSoft: '#fbe5d8', shirt: '#2f6f8f', dress: '#d8679a', hairW: '#4a2c22' };
+const NS = 'http://www.w3.org/2000/svg';
+const SVG = document.getElementById('svg');
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+const txt = (parent, x, y, s, attrs = {}) => { const t = el('text', { x, y, ...attrs }, parent); t.textContent = s; return t; };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const back = (x) => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const inn = (t, a, d = 0.45) => ease((t - a) / d);
+const vis = (t, a, b = 1e9, fi = 0.45, fo = 0.35) => Math.min(inn(t, a, fi), 1 - ease((t - b) / fo));
+const lerp = (a, b, k) => a + (b - a) * k;
+function setOp(e, o) { e.setAttribute('opacity', o.toFixed(3)); e.style.display = o < 0.003 ? 'none' : ''; }
+/** появление: прозрачность + подъём + «пружинка» масштаба вокруг (cx, cy) */
+function pop(e, t, a, cx, cy, { b = 1e9, dy = 0, spring = true, d = 0.5 } = {}) {
+  const o = vis(t, a, b, d);
+  const p = spring ? back((t - a) / (d + 0.1)) : inn(t, a, d);
+  const s = spring ? 0.4 + 0.6 * p : 1;
+  const y = (1 - inn(t, a, d)) * dy;
+  e.setAttribute('transform', `translate(${cx} ${cy + y}) scale(${s.toFixed(4)}) translate(${-cx} ${-cy})`);
+  setOp(e, o);
+}
+function shade(hex, k) { const n = parseInt(hex.slice(1), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k))); return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join(''); }
+
+// аксонометрия (оси D, C, L не сливают углы 000 и 111)
+const EX = [Math.cos(14 * Math.PI / 180), Math.sin(14 * Math.PI / 180)];
+const EY = [-Math.cos(58 * Math.PI / 180), Math.sin(58 * Math.PI / 180)];
+const EZ = [0, -0.78];
+function proj(O, S) {
+  const P = (x, y, z) => [O[0] + (x * EX[0] + y * EY[0] + z * EZ[0]) * S, O[1] + (x * EX[1] + y * EY[1] + z * EZ[1]) * S];
+  const pts = (arr) => arr.map((p) => P(...p).map((v) => v.toFixed(1)).join(',')).join(' ');
+  return { P, pts, S };
+}
+function box(g, pr, x, y, z, w, d, h, color) {
+  el('polygon', { points: pr.pts([[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]]), fill: shade(color, -0.12) }, g);
+  el('polygon', { points: pr.pts([[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]]), fill: shade(color, -0.28) }, g);
+  el('polygon', { points: pr.pts([[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]]), fill: shade(color, 0.18) }, g);
+}
+function person(g, pr, x, y, k, shirt = C_.shirt, hair = '#2b2f33') {
+  const u = 0.06 * k;
+  const c = pr.P(x + u, y + u, 0);
+  el('ellipse', { cx: c[0], cy: c[1], rx: 0.3 * pr.S * k * 0.42, ry: 0.11 * pr.S * k * 0.42, fill: C_.ink, opacity: 0.12 }, g);
+  box(g, pr, x, y + u * 0.2, 0, u * 0.7, u * 0.8, u * 3.2, '#3a4550');
+  box(g, pr, x + u * 1.1, y + u * 0.2, 0, u * 0.7, u * 0.8, u * 3.2, '#3a4550');
+  box(g, pr, x - u * 0.2, y, u * 3.2, u * 2.2, u * 1.2, u * 3.2, shirt);
+  box(g, pr, x - u * 0.75, y + u * 0.25, u * 3.6, u * 0.55, u * 0.7, u * 2.6, shirt);
+  box(g, pr, x + u * 2.0, y + u * 0.25, u * 3.6, u * 0.55, u * 0.7, u * 2.6, shirt);
+  box(g, pr, x + u * 0.25, y + u * 0.1, u * 6.5, u * 1.3, u * 1.1, u * 1.4, '#e7c6a5');
+  box(g, pr, x + u * 0.15, y + u * 0.05, u * 7.6, u * 1.5, u * 1.2, u * 0.4, hair);
+  return pr.P(x + u, y + u, u * 9.5); // точка над головой
+}
+// Женщина: платье, юбка, длинные волосы, спадающие на плечи
+function woman(g, pr, x, y, k, dress = C_.dress, hair = C_.hairW) {
+  const u = 0.06 * k;
+  const c = pr.P(x + u, y + u, 0);
+  el('ellipse', { cx: c[0], cy: c[1], rx: 0.3 * pr.S * k * 0.42, ry: 0.11 * pr.S * k * 0.42, fill: C_.ink, opacity: 0.12 }, g);
+  box(g, pr, x + u * 0.15, y + u * 0.3, 0, u * 0.55, u * 0.6, u * 2.2, '#3a4550');
+  box(g, pr, x + u * 1.15, y + u * 0.3, 0, u * 0.55, u * 0.6, u * 2.2, '#3a4550');
+  box(g, pr, x - u * 0.35, y - u * 0.1, u * 1.9, u * 2.5, u * 1.4, u * 1.5, shade(dress, -0.1));
+  box(g, pr, x - u * 0.1, y + u * 0.05, u * 3.2, u * 2.0, u * 1.1, u * 3.2, dress);
+  box(g, pr, x - u * 0.6, y + u * 0.3, u * 3.6, u * 0.5, u * 0.6, u * 2.6, dress);
+  box(g, pr, x + u * 1.9, y + u * 0.3, u * 3.6, u * 0.5, u * 0.6, u * 2.6, dress);
+  const strand = (sx) => {
+    box(g, pr, sx, y + u * 1.12, u * 4.9, u * 0.25, u * 0.23, u * 1.5, hair);
+    box(g, pr, sx, y + u * 0.05, u * 6.4, u * 0.25, u * 1.3, u * 1.45, hair);
+  };
+  strand(x);
+  box(g, pr, x + u * 0.25, y + u * 0.1, u * 6.5, u * 1.3, u * 1.1, u * 1.4, '#e7c6a5');
+  strand(x + u * 1.55);
+  box(g, pr, x, y - u * 0.05, u * 7.7, u * 1.8, u * 1.4, u * 0.5, hair);
+  return pr.P(x + u, y + u, u * 9.5);
+}
+function codeText(g, x, y, code, size = 44, anchor = 'middle') {
+  const t = el('text', { x, y, 'font-size': size, 'font-weight': 800, class: 'mono', 'text-anchor': anchor }, g);
+  for (const ch of code) { const s = el('tspan', { fill: ch === '0' ? C_.zeroInk : ch === 'x' ? '#8a9096' : C_.one }, t); s.textContent = ch; }
+  return t;
+}
+function badgeCode(g, cx, cy, code, full) {
+  const b = el('g', {}, g);
+  const w = code.length * 32 + 34;
+  if (full) el('circle', { cx, cy, r: 72, fill: C_.one, opacity: 0.15 }, b);
+  el('rect', { x: cx - w / 2, y: cy - 31, width: w, height: 62, rx: 20, fill: full ? C_.one : C_.card, stroke: full ? 'none' : C_.line, 'stroke-width': 3 }, b);
+  if (full) txt(b, cx, cy + 15, code, { 'font-size': 42, 'font-weight': 800, class: 'mono', 'text-anchor': 'middle', fill: '#f3f1ea' });
+  else codeText(b, cx, cy + 15, code, 42);
+  return b;
+}
+function grade(g, cx, cy, n, color, r = 70) {
+  const b = el('g', {}, g);
+  el('circle', { cx, cy, r, fill: C_.card, stroke: color, 'stroke-width': 8 }, b);
+  txt(b, cx, cy + r * 0.38, String(n), { 'font-size': r * 1.12, 'font-weight': 800, fill: color, 'text-anchor': 'middle' });
+  return b;
+}
+function bubble(g, x, y, w, lines, tail = 'left', fill = C_.card, color = C_.ink, size = 34) {
+  const b = el('g', {}, g);
+  const h = lines.length * size * 1.3 + 40;
+  const tx = tail === 'left' ? x + 50 : x + w - 50;
+  el('path', { d: `M ${tx - 18} ${y + h - 2} L ${tx + (tail === 'left' ? -30 : 30)} ${y + h + 40} L ${tx + 22} ${y + h - 2} Z`, fill, stroke: C_.line, 'stroke-width': 3 }, b);
+  el('rect', { x, y, width: w, height: h, rx: 26, fill, stroke: C_.line, 'stroke-width': 3 }, b);
+  el('rect', { x: tx - 16, y: y + h - 6, width: 36, height: 8, fill }, b);
+  lines.forEach((l, i) => txt(b, x + 26, y + 20 + size * 1.05 + i * size * 1.3, l, { 'font-size': size, 'font-weight': 700, fill: color }));
+  return b;
+}
+function pill(g, cx, cy, label, fill, color, size = 28) {
+  const b = el('g', {}, g);
+  const w = label.length * size * 0.58 + 40;
+  el('rect', { x: cx - w / 2, y: cy - size, width: w, height: size * 2, rx: size, fill }, b);
+  txt(b, cx, cy + size * 0.36, label, { 'font-size': size, 'font-weight': 700, fill: color, 'text-anchor': 'middle' });
+  return b;
+}
+function seeded(seed) { let a = seed; return () => (a = (a * 9301 + 49297) % 233280) / 233280; }
+
+// ---------- куб DCL ----------
+function buildCube(g, O = [470, 930], S = 360) {
+  const pr = proj(O, S);
+  const parts = { pr };
+  el('polygon', { points: pr.pts([[-0.35, -0.35, 0], [1.6, -0.35, 0], [1.6, 1.6, 0], [-0.35, 1.6, 0]]), fill: C_.floor }, g);
+  const V = []; for (const x of [0, 1]) for (const y of [0, 1]) for (const z of [0, 1]) V.push([x, y, z]);
+  const edges = el('g', {}, g);
+  const backV = (v) => v[0] === 0 && v[1] === 0;
+  for (const a of V) for (const b of V) {
+    const d = a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0);
+    if (d === 1 && a.join() < b.join()) { const A = pr.P(...a), B = pr.P(...b); const dashed = (backV(a) && backV(b)) || (a[2] === 0 && b[2] === 0 && (backV(a) || backV(b)));
+      el('line', { x1: A[0], y1: A[1], x2: B[0], y2: B[1], stroke: '#9aa39e', 'stroke-width': dashed ? 3 : 5, 'stroke-dasharray': dashed ? '12 12' : 'none', 'stroke-linecap': 'round' }, edges); }
+  }
+  parts.edges = edges;
+  parts.glow = el('circle', { cx: pr.P(1, 1, 1)[0], cy: pr.P(1, 1, 1)[1], r: 150, fill: C_.one, opacity: 0.1 }, g);
+  parts.axes = [[1.3, 0, 0, 'D', 'хочу', 14, 10], [0, 1.3, 0, 'C', 'согласен', -30, 50], [0, 0, 1.25, 'L', 'можно', 18, -10]].map(([x, y, z, L, sub, dx, dy]) => {
+    const a = pr.P(0, 0, 0), b = pr.P(x, y, z);
+    const ax = el('g', {}, g);
+    const line = el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: C_.one, 'stroke-width': 7, 'stroke-linecap': 'round' }, ax);
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]); line.setAttribute('stroke-dasharray', `${len} ${len}`);
+    const lab = el('g', {}, ax);
+    txt(lab, b[0] + dx, b[1] + dy, L, { 'font-size': 52, 'font-weight': 800, fill: C_.one, class: 'mono' });
+    txt(lab, b[0] + dx, b[1] + dy + 38, sub, { 'font-size': 30, fill: C_.muted });
+    return { ax, line, len, lab };
+  });
+  const OFF = { '000': [-95, 20], '100': [40, 80], '010': [-95, 30], '110': [70, 60], '001': [-95, -20], '101': [95, -30], '011': [-100, -10], '111': [95, -10] };
+  parts.corner = {};
+  parts.badges = V.map((v) => { const code = v.join(''); const p = pr.P(...v); const o = OFF[code]; parts.corner[code] = p; return { code, b: badgeCode(g, p[0] + o[0], p[1] + o[1], code, code === '111'), x: p[0] + o[0], y: p[1] + o[1] }; });
+  parts.dots = el('g', {}, g);
+  return parts;
+}
+// облака точек недели: [код, число точек, радиус, цвет]
+const CLOUD = [['011', 22, 95, C_.zero], ['101', 13, 70, C_.zero], ['001', 5, 45, C_.zero], ['111', 9, 60, C_.one]];
+function makeDots(parts, seed) {
+  const R = seeded(seed); const dots = [];
+  CLOUD.forEach(([code, n, r, color]) => { const c = parts.corner[code]; for (let i = 0; i < n; i++) { const a = R() * Math.PI * 2, rr = Math.sqrt(R()) * r;
+    const d = el('circle', { r: (9 + R() * 5).toFixed(1), fill: color, opacity: 0.88 }, parts.dots);
+    dots.push({ d, code, x: c[0] + Math.cos(a) * rr, y: c[1] + Math.sin(a) * rr * 0.7, delay: R(), color }); } });
+  return dots;
+}
+
+// ===================== помощники ролика 3 =====================
+const DEFS = el('defs', {}, SVG);
+let FID = 0;
+/** обесцвечивание группы: возвращает функцию k ∈ [0, 1] → насколько серым */
+function grayer(g) {
+  const id = 'gf' + (FID++);
+  const f = el('filter', { id, x: '-20%', y: '-20%', width: '140%', height: '140%', 'color-interpolation-filters': 'sRGB' }, DEFS);
+  const m = el('feColorMatrix', { type: 'saturate', values: '1' }, f);
+  g.setAttribute('filter', `url(#${id})`);
+  return (k) => m.setAttribute('values', (1 - clamp(k)).toFixed(3));
+}
+function wrenchIcon(g) { return el('path', { d: 'M 0 0 l 120 -120 a 40 40 0 1 1 40 40 l -120 120 z M 132 -132 l 24 24', fill: '#7a8288', stroke: '#5b6368', 'stroke-width': 6 }, g); }
+const BW = 0.3, BH = 0.34, BD = 0.3; // блок стены «система»
+/** стена из блоков; порядок отрисовки — по колонке, затем по ряду */
+function wall(g, pr, cells, color = '#c9cfcb', onColor = null) {
+  return cells.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(([c, r]) => {
+    const w = el('g', {}, g);
+    const off = el('g', {}, w); box(off, pr, c * BW, 0, r * BH, BW - 0.02, BD, BH - 0.02, color);
+    let on = null; if (onColor) { on = el('g', {}, w); box(on, pr, c * BW, 0, r * BH, BW - 0.02, BD, BH - 0.02, onColor); setOp(on, 0); }
+    return { c, r, w, off, on, p: pr.P(c * BW + BW / 2, BD / 2, r * BH + BH / 2) };
+  });
+}
+function wallCells(skip = []) { const out = []; for (let c = 0; c < 6; c++) for (let r = 0; r < 3; r++) if (!skip.some(([a, b]) => a === c && b === r)) out.push([c, r]); return out; }
+const SLOT = [[2, 0], [2, 1]];
+function floorPoly(g, pr, x0, y0, x1, y1) { return el('polygon', { points: pr.pts([[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0]]), fill: C_.floor }, g); }
+function pillL(g, x, cy, label, fill, color, size = 28) { const w = label.length * size * 0.58 + 40; return [pill(g, x + w / 2, cy, label, fill, color, size), x + w / 2]; }
+function miniBadge(g, cx, cy, code) {
+  const b = el('g', {}, g);
+  el('rect', { x: cx - 50, y: cy - 24, width: 100, height: 48, rx: 16, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, b);
+  codeText(b, cx, cy + 11, code, 32);
+  return b;
+}
+const cssT = (e, x, y, sx = 1, sy = sx, ox = 0, oy = 0) => e.setAttribute('transform', `translate(${(ox + x).toFixed(1)} ${(oy + y).toFixed(1)}) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(${(-ox).toFixed(1)} ${(-oy).toFixed(1)})`);
+/** «Жизнь на пятёрку» из ролика 2: площадка, пара, ноутбук, монеты, чемодан, солнце */
+function lifeScene(g, pr, sun) {
+  box(g, pr, 0, 0, -0.1, 1.5, 1.5, 0.1, '#e3ddd0');
+  box(g, pr, 0.06, 0.62, 0, 0.34, 0.24, 0.02, '#4a5560');
+  el('polygon', { points: pr.pts([[0.06, 0.62, 0.02], [0.4, 0.62, 0.02], [0.4, 0.62, 0.26], [0.06, 0.62, 0.26]]), fill: '#2f3a44' }, g);
+  const lc = pr.P(0.23, 0.62, 0.14);
+  el('path', { d: `M ${lc[0]} ${lc[1] + 18} c -40 -26 -30 -58 0 -40 c 30 -18 40 14 0 40 z`, fill: C_.zero }, g);
+  const h2 = woman(g, pr, 1.12, 0.22, 2.0);
+  el('path', { d: `M ${h2[0] - 70} ${h2[1] - 20} c -30 -22 -24 -48 0 -32 c 24 -16 30 12 0 32 z`, fill: C_.zero }, g);
+  const head = person(g, pr, 0.74, 0.6, 2.3, C_.shirt);
+  for (let i = 0; i < 5; i++) { const c = pr.P(0.2, 1.25, 0.03 * i); el('ellipse', { cx: c[0], cy: c[1], rx: 46, ry: 20, fill: '#d9a62e', stroke: '#b9871a', 'stroke-width': 3 }, g); }
+  const cc = pr.P(0.2, 1.25, 0.15); txt(g, cc[0], cc[1] - 6, '₽', { 'font-size': 40, 'font-weight': 800, fill: '#8a6110', 'text-anchor': 'middle' });
+  box(g, pr, 1.1, 1.1, 0, 0.26, 0.14, 0.3, '#3f7f9f');
+  const hb = pr.P(1.23, 1.17, 0.3);
+  el('path', { d: `M ${hb[0] - 22} ${hb[1]} v -22 h 44 v 22`, stroke: '#2a5a72', 'stroke-width': 8, fill: 'none' }, g);
+  el('circle', { cx: sun[0], cy: sun[1], r: 62, fill: '#f2c14e' }, g);
+  for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; el('line', { x1: sun[0] + Math.cos(a) * 82, y1: sun[1] + Math.sin(a) * 82, x2: sun[0] + Math.cos(a) * 112, y2: sun[1] + Math.sin(a) * 112, stroke: '#f2c14e', 'stroke-width': 10, 'stroke-linecap': 'round' }, g); }
+  grade(g, head[0] - 10, head[1] - 80, 5, C_.one, 58);
+}
+/** контурная копия группы — «чертёж»: линии рисуются через stroke-dashoffset */
+function blueprint(src, parent, color = '#3b74b8') {
+  const c = src.cloneNode(true); parent.appendChild(c);
+  c.querySelectorAll('text').forEach((e) => e.remove());
+  const shapes = [];
+  c.querySelectorAll('polygon,path,circle,ellipse,line,rect').forEach((e) => {
+    e.setAttribute('fill', 'none'); e.setAttribute('stroke', color); e.setAttribute('stroke-width', 2.6); e.setAttribute('stroke-linejoin', 'round'); e.removeAttribute('opacity');
+    const len = Math.max(1, e.getTotalLength());
+    e.setAttribute('stroke-dasharray', `${len.toFixed(1)} ${len.toFixed(1)}`);
+    shapes.push([e, len]);
+  });
+  return { c, shapes };
+}
+
+// ===================== ролик 4: рентгеновские элементы =====================
+const XR = { bg: '#0d1b2a', bone: '#e2edf6', dim: '#9fb4c7', hot: '#ff9a5c', frame: '#c9d1d6' };
+(() => {
+  const f = el('filter', { id: 'xglow', x: '-40%', y: '-40%', width: '180%', height: '180%' }, DEFS);
+  el('feGaussianBlur', { in: 'SourceGraphic', stdDeviation: 4, result: 'b' }, f);
+  const mg = el('feMerge', {}, f); el('feMergeNode', { in: 'b' }, mg); el('feMergeNode', { in: 'SourceGraphic' }, mg);
+  const r = el('radialGradient', { id: 'xvig', cx: '50%', cy: '45%', r: '65%' }, DEFS);
+  el('stop', { offset: '0', 'stop-color': '#2b4a6a', 'stop-opacity': 0.75 }, r);
+  el('stop', { offset: '1', 'stop-color': '#0b1622', 'stop-opacity': 0 }, r);
+})();
+/** Негатоскоп: светящаяся панель для снимков */
+function lightbox(g, x, y, w, h) {
+  const b = el('g', {}, g);
+  el('rect', { x: x - 16, y: y - 16, width: w + 32, height: h + 32, rx: 24, fill: XR.frame }, b);
+  el('rect', { x, y, width: w, height: h, rx: 12, fill: XR.bg }, b);
+  el('rect', { x, y, width: w, height: h, rx: 12, fill: 'url(#xvig)' }, b);
+  return b;
+}
+/** Снимок ноги: бедро, колено, голень, стопа */
+function legXray(g, cx, top, k = 1) {
+  const b = el('g', { filter: 'url(#xglow)', opacity: 0.92 }, g);
+  const S = (v) => v * k;
+  const c = (x, y, r) => el('circle', { cx: cx + S(x), cy: top + S(y), r: S(r), fill: XR.bone }, b);
+  const rr = (x, y, w, h, r) => el('rect', { x: cx + S(x), y: top + S(y), width: S(w), height: S(h), rx: S(r), fill: XR.bone }, b);
+  c(-6, 30, 40); rr(-24, 40, 44, 300, 20);          // головка и тело бедра
+  c(-24, 345, 34); c(22, 345, 34);                   // мыщелки
+  el('ellipse', { cx: cx + S(46), cy: top + S(335), rx: S(17), ry: S(26), fill: XR.bone, opacity: 0.8 }, b); // надколенник
+  el('ellipse', { cx, cy: top + S(392), rx: S(58), ry: S(17), fill: XR.bone }, b); // плато большеберцовой
+  rr(-26, 395, 46, 300, 18);                          // большеберцовая
+  rr(30, 410, 12, 280, 6);                            // малоберцовая
+  el('rect', { x: cx + S(-8), y: top + S(70), width: S(8), height: S(240), rx: S(4), fill: '#7f97ad', opacity: 0.55 }, b);
+  el('rect', { x: cx + S(-7), y: top + S(420), width: S(8), height: S(250), rx: S(4), fill: '#7f97ad', opacity: 0.55 }, b);
+  c(-4, 700, 28);                                     // лодыжка
+  rr(-40, 722, 120, 34, 16); rr(70, 728, 44, 20, 10); // стопа
+  return b;
+}
+/** Неделя на снимке: 7 дней × 6 моментов; нули светятся тёплым */
+const WEEK = [ // строки — моменты дня, столбцы — пн…вс; '' — сигнал пропущен
+  ['111', '111', '', '111', '111', '111', '111'],
+  ['011', '011', '011', '011', '011', '111', ''],
+  ['111', '', '111', '111', '111', '111', '111'],
+  ['111', '011', '111', '011', '111', '', '111'],
+  ['111', '111', '111', '', '111', '111', '111'],
+  ['111', '111', '101', '111', '', '101', '111'],
+];
+function weekXray(g, x, y, w, h, { labels = true } = {}) {
+  const dots = [];
+  const cw = w / 7.6, rh = h / 6.9;
+  const x0 = x + cw * 0.9, y0 = y + rh * 1.05;
+  if (labels) {
+    ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].forEach((d, i) => txt(g, x0 + i * cw, y + rh * 0.55, d, { 'font-size': Math.round(rh * 0.3), 'font-weight': 700, fill: XR.dim, 'text-anchor': 'middle' }));
+    [['утро', 0], ['день', 2], ['вечер', 4]].forEach(([l, r]) => txt(g, x + cw * 0.15, y0 + r * rh + rh * 0.5, l, { 'font-size': Math.round(rh * 0.24), fill: XR.dim }));
+  }
+  const glowG = el('g', { filter: 'url(#xglow)' }, g);
+  WEEK.forEach((row, r) => row.forEach((code, c) => {
+    if (!code) return;
+    const zero = code.includes('0');
+    const d = el('circle', { cx: x0 + c * cw, cy: y0 + r * rh, r: (zero ? 0.2 : 0.14) * rh, fill: zero ? XR.hot : XR.bone, opacity: zero ? 0.95 : 0.5 }, zero ? glowG : g);
+    dots.push({ d, r, c, zero, code, x: x0 + c * cw, y: y0 + r * rh });
+  }));
+  return { dots, cw, rh, x0, y0 };
+}
+
+// ===================== сцены =====================
+const SCENES = [];
+function scene(t0, t1, title, build) {
+  const g = el('g', {}, SVG);
+  const tEl = document.createElement('div'); tEl.className = 'title'; tEl.innerHTML = title; document.getElementById('titles').appendChild(tEl);
+  const update = build(g, tEl);
+  SCENES.push({ t0, t1, g, tEl, update });
+}
+const COAT = '#eef2f5', THER = '#3f7f6f';
+
+// 1. Травматолог: «Болит нога»
+scene(-0.4, 3.7, 'Пациент<br>у <span class="g">травматолога</span>', (g) => {
+  const S = 300, pr = proj([200, 900], S);
+  floorPoly(g, pr, -0.3, -0.3, 2.4, 1.6);
+  const room = el('g', {}, g);
+  box(room, pr, -0.3, -0.36, 0, 2.7, 0.06, 1.35, '#e9e4da');
+  const panel = el('polygon', { points: pr.pts([[1.25, -0.299, 0.55], [2.05, -0.299, 0.55], [2.05, -0.299, 1.15], [1.25, -0.299, 1.15]]), fill: '#243447' }, room);
+  person(room, pr, 1.25, 0.02, 2.2, COAT, '#6b6b6b');
+  box(room, pr, 0.95, 0.25, 0, 0.95, 0.42, 0.42, '#c8b79e');
+  const pat = el('g', {}, g);
+  const u = 0.06 * 2.2, px = 0.45, py = 1.0;
+  const head = person(pat, pr, px, py, 2.2);
+  box(pat, pr, px - u * 0.05, py + u * 0.15, u * 0.5, u * 0.8, u * 0.9, u * 1.5, '#fbfaf6'); // повязка на ноге
+  const pain = el('g', {}, g);
+  const lp = pr.P(px + u * 0.4, py + u, u * 1.2);
+  el('circle', { cx: lp[0], cy: lp[1], r: 34, fill: 'none', stroke: C_.zero, 'stroke-width': 5 }, pain);
+  const bub = bubble(g, head[0] - 40, head[1] - 175, 330, ['Болит нога'], 'left', C_.card, C_.ink, 38);
+  return (t) => {
+    pop(room, t, -0.4, 540, 800, { spring: false });
+    pop(pat, t, -0.2, lp[0], lp[1], { dy: 30, spring: false });
+    pop(bub, t, T.leg - 0.15, head[0] + 100, head[1] - 120, { dy: 14 });
+    setOp(pain, vis(t, T.leg) * (0.55 + 0.45 * Math.sin(t * 7)));
+    const k = inn(t, 3.2, 0.5); // негатоскоп загорается — переход к снимку
+    panel.setAttribute('fill', k > 0.5 ? '#5d7b97' : '#243447');
+  };
+});
+
+// 2. Рентген: что внутри
+scene(3.7, 8.3, 'Врач отправит<br>на <span class="g">рентген</span>', (g) => {
+  const box_ = lightbox(g, 220, 400, 640, 1000);
+  const leg = legXray(g, 520, 470, 1.15);
+  const clip = el('clipPath', { id: 'legclip' }, DEFS); const cr = el('rect', { x: 220, y: 400, width: 640, height: 0 }, clip);
+  leg.setAttribute('clip-path', 'url(#legclip)');
+  const scan = el('g', {}, g);
+  el('rect', { x: 220, y: -3, width: 640, height: 6, fill: '#7fe0ff', opacity: 0.85 }, scan);
+  el('rect', { x: 220, y: -40, width: 640, height: 40, fill: '#7fe0ff', opacity: 0.12 }, scan);
+  const ring = el('circle', { cx: 540, cy: 870, r: 95, fill: 'none', stroke: '#7fe0ff', 'stroke-width': 5, 'stroke-dasharray': '14 12' }, g);
+  const tag = pill(g, 540, 1460, 'видно, что внутри', C_.oneSoft, C_.one, 32);
+  return (t) => {
+    pop(box_, t, 3.7, 540, 900, { spring: false });
+    const k = clamp((t - T.doctor - 0.2) / 3.2);
+    cr.setAttribute('height', (1000 * ease(k)).toFixed(1));
+    scan.setAttribute('transform', `translate(0 ${(400 + 1000 * ease(k)).toFixed(1)})`);
+    setOp(scan, k > 0 && k < 1 ? 1 : 0);
+    setOp(ring, vis(t, T.inside - 0.1) * (0.6 + 0.4 * Math.sin(t * 6)));
+    pop(tag, t, T.inside, 540, 1460);
+  };
+});
+
+// 3. Психотерапевт: «Я постоянно в стрессе»
+scene(8.3, 12.65, 'Клиент<br>у <span class="g">психотерапевта</span>', (g) => {
+  const S = 300, pr = proj([230, 860], S);
+  floorPoly(g, pr, -0.3, -0.3, 2.4, 1.7);
+  const room = el('g', {}, g);
+  box(room, pr, -0.3, -0.36, 0, 2.7, 0.06, 1.35, '#e9e4da');
+  el('polygon', { points: pr.pts([[0.2, -0.299, 0.6], [0.75, -0.299, 0.6], [0.75, -0.299, 1.0], [0.2, -0.299, 1.0]]), fill: '#bcd3df' }, room); // окно
+  el('ellipse', { cx: pr.P(1.05, 0.75, 0)[0], cy: pr.P(1.05, 0.75, 0)[1], rx: 250, ry: 95, fill: '#e3d9c6' }, room); // ковёр
+  const chair = (x, y, c) => { box(room, pr, x, y, 0, 0.5, 0.5, 0.22, c); box(room, pr, x, y, 0.22, 0.5, 0.1, 0.38, shade(c, -0.08)); };
+  chair(1.45, 0.05, '#8aa39a');
+  box(room, pr, 0.95, 0.55, 0, 0.32, 0.32, 0.26, '#c8b79e'); // столик
+  const ther = el('g', {}, g); person(ther, pr, 1.6, 0.55, 2.2, THER, '#6b6b6b');
+  const cli = el('g', {}, g); const head = person(cli, pr, 0.45, 1.05, 2.2);
+  const bub = bubble(g, head[0] - 60, head[1] - 190, 470, ['Я постоянно', 'в стрессе'], 'left', C_.card, C_.ink, 38);
+  return (t) => {
+    pop(room, t, 8.3, 540, 800, { spring: false });
+    pop(ther, t, 8.5, 640, 1000, { dy: 20, spring: false });
+    pop(cli, t, 8.7, head[0], head[1] + 300, { dy: 20, spring: false });
+    pop(bub, t, T.stress - 0.15, head[0] + 160, head[1] - 120, { dy: 14 });
+  };
+});
+
+// 4. Между сессиями — туман
+scene(12.65, 17.9, 'Между <span class="g">сессиями</span>', (g) => {
+  const pr = proj([130, 860], 250);
+  const tiles = el('g', {}, g);
+  const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const marks = [];
+  days.forEach((d, i) => {
+    const x = i * 0.5;
+    box(tiles, pr, x, 0, 0, 0.42, 0.42, 0.08, i === 0 ? '#bfe0cd' : '#e3ddd0');
+    const lab = pr.P(x + 0.21, 0.55, 0); txt(tiles, lab[0], lab[1] + 36, d, { 'font-size': 30, 'font-weight': 700, fill: C_.muted, 'text-anchor': 'middle' });
+    const top = pr.P(x + 0.21, 0.21, 0.55);
+    if (i === 0) return;
+    const q = el('g', {}, g);
+    el('circle', { cx: top[0], cy: top[1], r: 34, fill: C_.card, stroke: '#9aa1a5', 'stroke-width': 5 }, q);
+    txt(q, top[0], top[1] + 14, '?', { 'font-size': 40, 'font-weight': 800, fill: '#7d8589', 'text-anchor': 'middle' });
+    marks.push([q, top, i]);
+  });
+  const fog = el('g', {}, g);
+  const R = seeded(4);
+  const puffs = Array.from({ length: 8 }, (_, i) => ({ e: el('ellipse', { rx: 140 + R() * 80, ry: 55 + R() * 30, fill: '#ffffff', opacity: 0.55 }, fog), x: 300 + i * 95, y: 860 + (i % 3) * 60 - i * 10, ph: R() * 6 }));
+  // сессия у терапевта — светлое пятно, остальное в тумане
+  const sp = pr.P(0.21, 0.21, 0.55);
+  const sess = pill(g, sp[0] + 20, sp[1], 'сессия', C_.oneSoft, C_.one, 28);
+  const mem = el('g', {}, g);
+  bubble(mem, 300, 1150, 560, ['только с его слов —', 'по памяти'], 'left', '#efece5', C_.muted, 36);
+  return (t) => {
+    pop(tiles, t, 12.65, 540, 900, { dy: 30, spring: false });
+    pop(sess, t, 12.9, sp[0] + 20, sp[1]);
+    marks.forEach(([q, p, i]) => pop(q, t, T.between - 0.3 + i * 0.12, p[0], p[1]));
+    setOp(fog, inn(t, T.between, 1.2) * 0.9);
+    puffs.forEach((p) => { p.e.setAttribute('cx', (p.x + Math.sin(t * 0.7 + p.ph) * 30).toFixed(1)); p.e.setAttribute('cy', (p.y + Math.cos(t * 0.5 + p.ph) * 8).toFixed(1)); });
+    pop(mem, t, T.memory - 0.6, 580, 1200, { dy: 16 });
+  };
+});
+
+// 5. Обычный день: три сценки с нулями
+scene(17.9, 26.0, 'Его <span class="g">обычный день</span>', (g) => {
+  const rows = [
+    { y0: 380, at: T.v1, code: '011', label: 'не хочу', draw: (gg, pr) => {
+      box(gg, pr, 0.95, 0.05, 0, 0.75, 0.42, 0.4, '#c8b79e');
+      box(gg, pr, 1.1, 0.12, 0.4, 0.34, 0.24, 0.02, '#4a5560');
+      el('polygon', { points: pr.pts([[1.1, 0.12, 0.42], [1.44, 0.12, 0.42], [1.44, 0.12, 0.66], [1.1, 0.12, 0.66]]), fill: '#2f3a44' }, gg);
+      person(gg, pr, 0.95, 0.62, 1.7);
+    } },
+    { y0: 725, at: T.v2, code: '011', label: 'не хочу общаться', draw: (gg, pr) => {
+      person(gg, pr, 0.55, 0.45, 1.7);
+      person(gg, pr, 1.45, 0.25, 1.7, '#7a6a5a', '#3a2a22');
+      const a = pr.P(0.62, 0.45, 1.05), b = pr.P(1.52, 0.25, 1.05);
+      el('rect', { x: a[0] - 20, y: a[1] - 70, width: 70, height: 40, rx: 14, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, gg);
+      txt(gg, a[0] + 15, a[1] - 42, '…', { 'font-size': 30, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.muted });
+      el('rect', { x: b[0] - 40, y: b[1] - 80, width: 90, height: 40, rx: 14, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, gg);
+      txt(gg, b[0] + 5, b[1] - 52, '…', { 'font-size': 30, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.muted });
+    } },
+    { y0: 1070, at: T.v3, code: '101', label: 'не согласен', draw: (gg, pr) => {
+      person(gg, pr, 0.8, 0.5, 1.7);
+      const d = pr.P(1.25, 0.55, 0.55);
+      el('rect', { x: d[0] - 34, y: d[1] - 44, width: 68, height: 88, rx: 6, fill: '#fbfaf6', stroke: C_.line, 'stroke-width': 3, transform: `rotate(-8 ${d[0]} ${d[1]})` }, gg);
+      for (let i = 0; i < 4; i++) el('line', { x1: d[0] - 22, y1: d[1] - 26 + i * 16, x2: d[0] + 20, y2: d[1] - 26 + i * 16, stroke: '#c9cfcb', 'stroke-width': 4, transform: `rotate(-8 ${d[0]} ${d[1]})` }, gg);
+      txt(gg, d[0] + 40, d[1] - 50, '✓', { 'font-size': 40, 'font-weight': 800, fill: C_.zeroInk });
+    } },
+  ];
+  const items = rows.map((r) => {
+    const card = el('g', {}, g);
+    el('rect', { x: 60, y: r.y0, width: 960, height: 320, rx: 30, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, card);
+    const pr = proj([150, r.y0 + 170], 200);
+    r.draw(card, pr);
+    const bd = el('g', {}, g);
+    badgeCode(bd, 840, r.y0 + 135, r.code);
+    txt(bd, 840, r.y0 + 215, r.label, { 'font-size': 32, 'font-weight': 700, fill: C_.zeroInk, 'text-anchor': 'middle' });
+    return { card, bd, r };
+  });
+  return (t) => items.forEach(({ card, bd, r }) => { pop(card, t, r.at - 0.5, 540, r.y0 + 160, { dy: 24, spring: false }); pop(bd, t, r.at + 0.3, 840, r.y0 + 160); });
+});
+
+// 6–7. DCL собирает данные: сигнал и три вопроса
+scene(26.0, 38.5, 'DCL <span class="g">собирает данные</span>', (g, te) => {
+  const ph = el('g', {}, g);
+  el('rect', { x: 250, y: 390, width: 580, height: 980, rx: 60, fill: '#1c2220' }, ph);
+  el('rect', { x: 268, y: 408, width: 544, height: 944, rx: 46, fill: C_.paper }, ph);
+  const splash = el('g', {}, ph);
+  [[42, 46], [25, 66], [8, 76], [-9, 68], [-26, 52]].forEach(([x, h]) => el('rect', { x: 540 - x * 2.2 - 13, y: 860 - h * 2.2, width: 26, height: h * 2.2, rx: 13, fill: C_.one }, splash));
+  txt(splash, 540, 960, 'DCL', { 'font-size': 110, 'font-weight': 800, 'text-anchor': 'middle', class: 'mono', fill: C_.ink });
+  const note = el('g', {}, g);
+  el('rect', { x: 290, y: 440, width: 500, height: 110, rx: 26, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, note);
+  el('rect', { x: 312, y: 462, width: 66, height: 66, rx: 16, fill: C_.one }, note);
+  txt(note, 396, 488, 'DCL-832 · сейчас', { 'font-size': 24, 'font-weight': 700, fill: C_.muted });
+  txt(note, 396, 526, 'Что вы сейчас делаете?', { 'font-size': 30, 'font-weight': 800 });
+  const qs = el('g', {}, ph);
+  const rows = [['D', 'Хочу ли я это делать?', '', T.q1, 0], ['C', 'Согласен ли я с этим?', '', T.q2, 1], ['L', 'Можно ли это?', 'законы · правила · договорённости', T.q3, 1]].map(([L, q, sub, at, v], i) => {
+    const y = 640 + i * 165, r = el('g', {}, qs);
+    el('rect', { x: 296, y, width: 488, height: 140, rx: 26, fill: C_.card, stroke: C_.line, 'stroke-width': 3 }, r);
+    txt(r, 330, y + 62, L, { 'font-size': 46, 'font-weight': 800, class: 'mono', fill: C_.one });
+    txt(r, 380, y + 58, q, { 'font-size': 29, 'font-weight': 700 });
+    if (sub) txt(r, 380, y + 98, sub, { 'font-size': 19, fill: C_.muted });
+    const b0 = el('circle', { cx: 380 + 250, cy: y + 112 - (sub ? 0 : 20), r: 0 }, r); // место для ответа
+    const ans = el('g', {}, r);
+    const ax = 732, ay = y + 70;
+    el('circle', { cx: ax, cy: ay, r: 34, fill: v ? C_.one : C_.zeroInk }, ans);
+    txt(ans, ax, ay + 14, String(v), { 'font-size': 38, 'font-weight': 800, class: 'mono', fill: '#fff', 'text-anchor': 'middle' });
+    void b0;
+    return { r, ans, at, ax, ay, y };
+  });
+  const code = el('g', {}, ph); codeText(code, 540, 1250, '011', 110);
+  return (t) => {
+    te.innerHTML = t < T.ping - 0.2 ? 'DCL <span class="g">собирает данные</span>' : 'Три вопроса<br>в <span class="g">случайный момент</span>';
+    pop(ph, t, 26.0, 540, 880, { dy: 30, spring: false });
+    setOp(splash, 1 - inn(t, T.ping - 0.2, 0.4));
+    pop(note, t, T.ping, 540, 495, { b: T.three + 0.2, dy: -30 });
+    rows.forEach((x, i) => { pop(x.r, t, T.three + 0.2 + i * 0.25, 540, x.y + 70, { dy: 16 }); pop(x.ans, t, x.at + 0.1, x.ax, x.ay); });
+    pop(code, t, T.q3 + 0.6, 540, 1215);
+  };
+});
+
+// 8. Снимок недели на негатоскопе
+scene(38.5, 43.9, 'Снимок <span class="g">недели</span>', (g) => {
+  const lb = lightbox(g, 110, 400, 860, 1000);
+  const wk = weekXray(g, 130, 430, 820, 900);
+  const band = el('rect', { x: wk.x0 - wk.cw * 0.42, y: wk.y0 + wk.rh - wk.rh * 0.42, width: wk.cw * 4.84, height: wk.rh * 0.84, rx: wk.rh * 0.42, fill: 'none', stroke: XR.hot, 'stroke-width': 5, 'stroke-dasharray': '14 10' }, g);
+  const reg = pill(g, wk.x0 + wk.cw * 2, wk.y0 + wk.rh * 1.72, '011 · регулярно', '#3a2a24', XR.hot, 26);
+  const where = pill(g, 330, 1330, 'где: работа', '#1f3347', '#cfe3f2', 30);
+  const whom = pill(g, 740, 1330, 'с кем: коллега', '#1f3347', '#cfe3f2', 30);
+  return (t) => {
+    pop(lb, t, 38.5, 540, 900, { spring: false });
+    wk.dots.forEach((d) => { const k = inn(t, T.week + d.c * 0.12 + d.r * 0.05, 0.35); d.d.setAttribute('transform', `translate(${d.x} ${d.y}) scale(${k.toFixed(3)}) translate(${-d.x} ${-d.y})`); });
+    setOp(band, inn(t, T.zeros, 0.4) * (0.7 + 0.3 * Math.sin(t * 6)));
+    band.setAttribute('stroke-dashoffset', (-t * 30).toFixed(1));
+    pop(reg, t, T.zeros + 0.3, wk.x0 + wk.cw * 2, wk.y0 + wk.rh * 1.72);
+    pop(where, t, T.where - 0.1, 330, 1330); pop(whom, t, T.whom - 0.1, 740, 1330);
+  };
+});
+
+// 9. Не диагноз — данные для разговора
+scene(43.9, 50.9, 'Не диагноз —<br><span class="g">данные для разговора</span>', (g) => {
+  const lb = lightbox(g, 300, 400, 480, 420);
+  weekXray(g, 312, 412, 456, 396, { labels: false });
+  const pr = proj([260, 1060], 280);
+  floorPoly(g, pr, -0.2, -0.2, 2.0, 1.0);
+  const ppl = el('g', {}, g);
+  person(ppl, pr, 0.35, 0.45, 2.1);
+  person(ppl, pr, 1.25, 0.15, 2.1, THER, '#6b6b6b');
+  const no = pill(g, 540, 905, 'не диагноз и не замена терапевту', '#ece8df', C_.muted, 28);
+  const yes = pill(g, 540, 1400, 'данные о жизни клиента между сессиями', C_.oneSoft, C_.one, 30);
+  return (t) => {
+    pop(lb, t, 43.9, 540, 610, { spring: false });
+    pop(ppl, t, 44.1, 540, 1150, { dy: 24, spring: false });
+    pop(no, t, T.nodx + 0.4, 540, 905);
+    pop(yes, t, T.data - 0.1, 540, 1400);
+  };
+});
+
+// 10. Понять, почему он снова и снова там
+scene(50.9, 59.4, 'Понять, <span class="g">почему</span>', (g) => {
+  const S = 300, pr = proj([300, 940], S);
+  const C0 = [1.0, 0.9], RX = 0.85, RY = 0.75;
+  const track = el('polygon', { points: pr.pts(Array.from({ length: 48 }, (_, i) => { const a = (i / 48) * Math.PI * 2; return [C0[0] + Math.cos(a) * RX, C0[1] + Math.sin(a) * RY, 0]; })), fill: 'none', stroke: '#d6cfc2', 'stroke-width': 26, 'stroke-linejoin': 'round' }, g);
+  const blk = el('g', {}, g);
+  const bp = [C0[0] + RX + 0.14, C0[1] - 0.5];
+  box(blk, pr, bp[0], bp[1], 0, 0.36, 0.36, 0.34, C_.zero);
+  const bt = pr.P(bp[0] + 0.18, bp[1] + 0.18, 0.34);
+  const lbl = el('g', {}, g); badgeCode(lbl, bt[0], bt[1] - 60, '011');
+  txt(lbl, bt[0], bt[1] - 105, 'работа', { 'font-size': 30, 'font-weight': 700, fill: C_.zeroInk, 'text-anchor': 'middle' });
+  const walker = el('g', {}, g); const u = 0.06 * 1.6;
+  person(walker, pr, C0[0] - u, C0[1] - u, 1.6);
+  const ring = el('ellipse', { cx: bt[0], cy: bt[1] + 40, rx: 150, ry: 90, fill: 'none', stroke: C_.zeroInk, 'stroke-width': 6, 'stroke-dasharray': '16 12' }, g);
+  const src = pill(g, bt[0] - 10, bt[1] + 175, 'здесь возникает стресс', C_.zeroSoft, C_.zeroInk, 28);
+  const p1 = pill(g, 540, 470, 'учить переносить стресс', '#ece8df', C_.muted, 32);
+  const strike = el('line', { x1: 330, y1: 470, x2: 750, y2: 470, stroke: C_.zeroInk, 'stroke-width': 6, 'stroke-linecap': 'round' }, g);
+  const p2 = pill(g, 540, 570, 'понять, почему он снова там', C_.oneSoft, C_.one, 32);
+  return (t) => {
+    pop(track, t, 50.9, 540, 1000, { spring: false });
+    pop(blk, t, 51.2, bt[0], bt[1] + 60, { dy: 20 });
+    pop(lbl, t, 51.5, bt[0], bt[1] - 80);
+    pop(p1, t, T.s10 + 0.2, 540, 470); setOp(strike, inn(t, T.but, 0.3));
+    pop(p2, t, T.why - 0.1, 540, 570);
+    const a = Math.PI * 1.05 + Math.max(0, t - 52.0) * 1.6; // идёт по кругу и снова приходит к «работе»
+    const pos = pr.P(C0[0] + Math.cos(a) * RX, C0[1] + Math.sin(a) * RY, 0), base = pr.P(C0[0], C0[1], 0);
+    const bob = Math.abs(Math.sin(t * 9)) * 6;
+    walker.setAttribute('transform', `translate(${(pos[0] - base[0]).toFixed(1)} ${(pos[1] - base[1] - bob).toFixed(1)})`);
+    setOp(walker, vis(t, 51.6));
+    const near = Math.max(0, Math.cos(a)); // у блока «работа» — вспышка
+    blk.style.filter = near > 0.93 ? 'brightness(1.15)' : '';
+    setOp(ring, inn(t, T.there - 0.1, 0.4) * (0.7 + 0.3 * Math.sin(t * 6)));
+    pop(src, t, T.there + 0.3, bt[0] - 10, bt[1] + 175);
+  };
+});
+
+// 11. Финал
+scene(59.4, 999, '', (g) => {
+  const fin = el('g', {}, g);
+  [[42, 46], [25, 66], [8, 76], [-9, 68], [-26, 52]].forEach(([x, h]) => el('rect', { x: 540 - x * 2.4 - 14, y: 640 - h * 2.4, width: 28, height: h * 2.4, rx: 14, fill: C_.one }, fin));
+  txt(fin, 540, 790, 'DCL', { 'font-size': 150, 'font-weight': 800, 'text-anchor': 'middle', class: 'mono', fill: C_.ink });
+  const sl = el('g', {}, g);
+  txt(sl, 540, 900, 'Рентген', { 'font-size': 64, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.one });
+  txt(sl, 540, 975, 'повседневной жизни', { 'font-size': 64, 'font-weight': 800, 'text-anchor': 'middle', fill: C_.one });
+  const note = el('g', {}, g);
+  txt(note, 540, 1060, 'Инструмент самонаблюдения, не медицинская диагностика', { 'font-size': 28, 'font-weight': 500, 'text-anchor': 'middle', fill: C_.muted });
+  const url = el('g', {}, g);
+  el('rect', { x: 230, y: 1140, width: 620, height: 96, rx: 30, fill: C_.one }, url);
+  txt(url, 540, 1202, 'dcl832.click/specialists', { 'font-size': 46, 'font-weight': 800, 'text-anchor': 'middle', fill: '#f3f1ea' });
+  return (t) => { pop(fin, t, T.fin, 540, 720, { dy: 30 }); pop(sl, t, T.fin + 0.9, 540, 940, { dy: 20 }); pop(note, t, T.fin + 1.6, 540, 1050); pop(url, t, T.fin + 2.0, 540, 1188); };
+});
+
+// ===================== субтитры =====================
+const FIX = { 'задает': 'задаёт', 'дает': 'даёт', '–': '—', 'снимок,': 'снимок:', 'Болит': '«Болит', 'нога.': 'нога».', 'Я': '«Я', 'стрессе.': 'стрессе».' };
+let CHUNKS = [], lastCap = null;
+function buildCaptions(segments) {
+  const words = [];
+  for (const s of segments) for (const w of s.words) {
+    const txt0 = FIX[w.w] || w.w;
+    const prev = words[words.length - 1];
+    if (prev && /^-/.test(txt0)) { prev.w += txt0; prev.e = w.e; continue; }
+    if (prev && prev.w === 'за' && txt0 === 'меров') { prev.w = 'замеров —'; prev.e = w.e; continue; }
+    words.push({ w: txt0, s: w.s, e: w.e });
+  }
+  let cur = [];
+  const flush = () => { if (cur.length) CHUNKS.push(cur); cur = []; };
+  for (const w of words) { cur.push(w); const len = cur.map((x) => x.w).join(' ').length; if (/[.?!]$/.test(w.w) || (/[,:]$/.test(w.w) && len > 18) || len > 30) flush(); }
+  flush();
+}
+function renderCaption(t) {
+  let chunk = null;
+  for (let i = 0; i < CHUNKS.length; i++) { const c = CHUNKS[i], n = CHUNKS[i + 1]; const end = Math.min(c[c.length - 1].e + 0.6, n ? n[0].s - 0.05 : 1e9); if (t >= c[0].s - 0.15 && t < end) { chunk = c; break; } }
+  const cap = document.getElementById('cap');
+  if (!chunk) { cap.style.opacity = 0; return; }
+  if (lastCap !== chunk) { cap.innerHTML = chunk.map((w) => `<span>${w.w}</span> `).join(''); lastCap = chunk; }
+  cap.style.opacity = 1;
+  const spans = cap.querySelectorAll('span');
+  chunk.forEach((w, i) => { spans[i].className = t >= w.s ? (t < w.e + 0.05 ? 'on cur' : 'on') : ''; });
+}
+
+// ===================== кадр =====================
+function render(t) {
+  for (const sc of SCENES) {
+    const v = vis(t, sc.t0, sc.t1 - 0.3, 0.35, 0.3);
+    setOp(sc.g, v);
+    sc.tEl.style.opacity = v.toFixed(3);
+    sc.tEl.style.transform = `translateY(${((1 - inn(t, sc.t0, 0.45)) * 30).toFixed(1)}px)`;
+    sc.tEl.style.display = v < 0.003 ? 'none' : '';
+    if (v > 0.003) sc.update(t);
+  }
+  const hide = inn(t, T.fin - 0.2, 0.3);
+  document.getElementById('brand').style.opacity = (1 - hide).toFixed(3);
+  renderCaption(t);
+}
+window.render = render;
+window.setWords = (segments) => { CHUNKS = []; lastCap = null; buildCaptions(segments); };
+window.TIMES = T;
+(async () => {
+  const p = new URLSearchParams(location.search);
+  if (!window.__RENDERER__) {
+    try { window.setWords(await (await fetch('assets/words.json')).json()); } catch (e) { console.warn(e); }
+    render(Number(p.get('t') || 0));
+  }
+})();
+</script>
+</body>
+</html>

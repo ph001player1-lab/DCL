@@ -98,7 +98,7 @@ sql("DELETE FROM pings WHERE user_id IN (SELECT id FROM users WHERE push_endpoin
 sql("DELETE FROM users WHERE push_endpoint LIKE 'http://127.0.0.1:9999/%'");
 
 // 1. Регистрация
-let r = await api('/api/register', { method: 'POST', body: JSON.stringify({ tz: 'Europe/Moscow', wake_start: 0, wake_end: 1439, pings_per_day: 8, consent: true }) });
+let r = await api('/api/register', { method: 'POST', body: JSON.stringify({ tz: 'Europe/Moscow', wake_start: 0, wake_end: 1439, pings_per_day: 20, consent: true }) });
 assert.equal(r.status, 201);
 const token = `${r.body.id}.${r.body.key}`;
 const userId = r.body.id;
@@ -283,6 +283,21 @@ assert.equal((await api('/api/admin/booking', {}, session)).body.upcoming[0].nam
 r = await api(`/api/bookings/${booking.id}/cancel`, { method: 'POST' }, token);
 assert.equal(r.status, 200); assert.deepEqual(gDeleted, ['ev1']);
 assert.equal((await api(`/api/threads/${specThread}`, {}, token)).body.messages.at(-1).kind, 'booking_cancel');
+
+// заявка специалиста с сайта → админка, тема «pro»
+const proBase = { name: 'Анна, психолог', contact: '@anna_psy', interests: ['supervision', 'bogus'], message: 'Хочу разбирать случаи с DCL' };
+assert.equal((await api('/api/pro-contact', { method: 'POST', body: JSON.stringify(proBase) })).status, 400); // без согласия
+assert.equal((await api('/api/pro-contact', { method: 'POST', body: JSON.stringify({ ...proBase, consent: true, website: 'spam' }) })).status, 200); // ловушка: делаем вид, что приняли
+r = await api('/api/pro-contact', { method: 'POST', body: JSON.stringify({ ...proBase, consent: true }) });
+assert.equal(r.status, 201, JSON.stringify(r.body));
+r = await api('/api/admin/threads', {}, session);
+const proT = r.body.threads.find((t) => t.topic === 'pro' && t.name === 'Анна, психолог');
+assert.ok(proT && proT.unread === 1);
+assert.equal(r.body.threads.filter((t) => t.topic === 'pro' && t.last?.body === 'Хочу разбирать случаи с DCL').length >= 1, true);
+r = await api(`/api/admin/threads/${proT.id}`, {}, session);
+assert.equal(r.body.owner.contact, '@anna_psy'); assert.deepEqual(r.body.messages[0].data.interests, ['supervision']);
+assert.equal((await api(`/api/admin/threads/${proT.id}`, { method: 'PUT', body: JSON.stringify({ status: 'done' }) }, session)).status, 200);
+await api(`/api/admin/threads/${proT.id}/delete`, { method: 'POST' }, session);
 
 // выход из профиля на B: переписка профиля больше не видна
 await api('/api/profile/logout', { method: 'POST' }, tokenB);

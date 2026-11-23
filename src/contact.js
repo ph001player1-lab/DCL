@@ -10,9 +10,11 @@ const STATUSES = {
   support: ['new', 'open', 'done'],
   idea: ['new', 'accepted', 'in_progress', 'done', 'declined'],
   specialist: ['new', 'open', 'done'],
+  pro: ['new', 'open', 'done'], // заявки специалистов с сайта
 };
 const IDEA_STATUS = { accepted: 'принята', in_progress: 'в работе', done: 'сделана', declined: 'пока не в планах' };
-const TOPIC_TITLE = { support: 'Техподдержка', idea: 'Идея', specialist: 'Вопрос специалисту' };
+const TOPIC_TITLE = { support: 'Техподдержка', idea: 'Идея', specialist: 'Вопрос специалисту', pro: 'Заявка специалиста' };
+const PRO_INTERESTS = { supervision: 'Супервизия', method: 'Консультация по методу', stats: 'Статистика', exchange: 'Обмен опытом' };
 const MAX_BODY = 4000;
 const MAX_REPORT = 24000;
 const MSG_PER_HOUR = 30;
@@ -157,6 +159,33 @@ export async function deleteDeviceContact(env, user) {
     env.DB.prepare('DELETE FROM messages WHERE thread_id IN (SELECT id FROM threads WHERE user_id = ? AND profile_id IS NULL)').bind(user.id),
     env.DB.prepare('DELETE FROM threads WHERE user_id = ? AND profile_id IS NULL').bind(user.id),
   ]);
+}
+
+// ---------- форма специалистов на сайте (без устройства и профиля) ----------
+
+export async function handleProContact(request, env, ctx) {
+  const now = Date.now();
+  const b = await readJson(request, 16 * 1024);
+  if (b.website) return json({ ok: true }); // ловушка для ботов
+  const name = String(b.name ?? '').replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const contact = String(b.contact ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 120);
+  if (!name) throw new HttpError(400, 'bad_name');
+  if (contact.length < 3) throw new HttpError(400, 'bad_contact');
+  if (b.consent !== true) throw new HttpError(400, 'need_consent');
+  const interests = (Array.isArray(b.interests) ? b.interests : []).filter((k) => PRO_INTERESTS[k]).slice(0, 4);
+  const body = cleanBody(b.message, !interests.length);
+  const ip = request.headers.get('cf-connecting-ip') || 'local';
+  const who = `web:${(await sha256(`dcl832-pro:${ip}`)).slice(0, 16)}`; // IP не хранится — только отпечаток для ограничения частоты
+  const r = await env.DB.prepare('SELECT COUNT(*) AS n FROM threads WHERE user_id = ? AND created_at > ?').bind(who, now - 86400_000).first();
+  if (r.n >= 5) throw new HttpError(429, 'too_many');
+  const id = randomId(12);
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO threads (id, user_id, profile_id, topic, status, created_at, updated_at, last_from, unread_admin, guest_name, guest_contact)
+      VALUES (?, ?, NULL, 'pro', 'new', ?, ?, 'user', 1, ?, ?)`).bind(id, who, now, now, name, contact),
+    msgStmt(env, { thread: id, author: 'user', body, data: { interests }, now }),
+  ]);
+  later(ctx, notifyAdmin(env, { thread: id, title: 'Специалист: новая заявка', body: name }));
+  return json({ ok: true }, 201);
 }
 
 // ---------- API пользователя ----------
@@ -351,7 +380,7 @@ export async function handleAdminContact(request, env, ctx, path, method, url) {
       FROM threads t LEFT JOIN profiles p ON p.id = t.profile_id LEFT JOIN users u ON u.id = t.user_id
       ORDER BY (t.unread_admin > 0) DESC, t.updated_at DESC LIMIT 300`).all();
     return json({ now, threads: results.map((t) => ({ id: t.id, topic: t.topic, status: t.status, updated_at: t.updated_at, created_at: t.created_at,
-      unread: t.unread_admin, name: t.profile_name || null, device: t.user_id.slice(0, 6), platform: t.platform, last: parse(t.last) })),
+      unread: t.unread_admin, name: t.profile_name || t.guest_name || null, device: t.user_id.slice(0, 6), platform: t.platform, last: parse(t.last) })),
       unread: results.reduce((s, t) => s + (t.unread_admin > 0 ? 1 : 0), 0) });
   }
 
@@ -368,7 +397,7 @@ export async function handleAdminContact(request, env, ctx, path, method, url) {
     if (t.unread_admin) await DB.prepare('UPDATE threads SET unread_admin = 0 WHERE id = ?').bind(t.id).run();
     return json({
       thread: { id: t.id, topic: t.topic, status: t.status, created_at: t.created_at, updated_at: t.updated_at },
-      owner: { name: t.profile_name || null, profile_devices: t.profile_id ? devs.results[0].n : 0, device: t.user_id.slice(0, 6),
+      owner: { name: t.profile_name || t.guest_name || null, contact: t.guest_contact || null, profile_devices: t.profile_id ? devs.results[0].n : 0, device: t.user_id.slice(0, 6),
         platform: t.platform, standalone: t.standalone, device_created: t.device_created, profile_created: t.profile_created },
       messages: msgs.results.map(publicMessage), bookings: books.results.map(publicBooking),
     });

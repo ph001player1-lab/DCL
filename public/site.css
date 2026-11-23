@@ -252,3 +252,28 @@ footer p { margin: 6px 0; }
 .doc h3 { font-size: 1.05rem; margin: 20px 0 6px; }
 .doc p, .doc li { line-height: 1.6; }
 .doc ul { padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- страница для специалистов ---------- */
+.steps.steps4 { grid-template-columns: repeat(4, 1fr); }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.grid4 .card h3 { margin-top: 0; }
+.pro-form { display: flex; flex-direction: column; gap: 12px; }
+.pro-form label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: .95rem; }
+.pro-form input:not([type=checkbox]), .pro-form textarea {
+  font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; min-width: 0; width: 100%;
+}
+.pro-form textarea { resize: vertical; }
+.pro-form fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.pro-form legend { font-weight: 600; font-size: .95rem; margin-bottom: 6px; padding: 0; }
+.pro-form label.chk { flex-direction: row; align-items: flex-start; gap: 8px; font-weight: 500; }
+.pro-form label.chk input { margin-top: 4px; width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+.pro-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.form-msg { margin: 0; padding: 10px 12px; border-radius: 12px; font-weight: 600; }
+.form-msg.ok { background: var(--one-soft); color: var(--one); }
+.form-msg.err { background: var(--zero-soft, #fbe5d8); color: var(--zero-ink, #a4461b); }
+@media (max-width: 860px) {
+  .steps.steps4, .grid4 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .steps.steps4, .grid4 { grid-template-columns: 1fr; }
+}

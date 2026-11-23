@@ -397,11 +397,13 @@ function renderLoad() {
 }
 
 // ---------- Сообщения ----------
-const TOPIC = { support: 'Поддержка', idea: 'Идея', specialist: 'Специалист' };
+const TOPIC = { support: 'Поддержка', idea: 'Идея', specialist: 'Специалист', pro: 'Коллега' };
+const PRO_INT = { supervision: 'Супервизия', method: 'Консультация по методу', stats: 'Статистика', exchange: 'Обмен опытом' };
 const STATUSES = {
   support: [['new', 'новое'], ['open', 'в работе'], ['done', 'решено']],
   idea: [['new', 'новая'], ['accepted', 'принята'], ['in_progress', 'в работе'], ['done', 'сделана'], ['declined', 'пока не в планах']],
   specialist: [['new', 'новое'], ['open', 'идёт разговор'], ['done', 'завершено']],
+  pro: [['new', 'новая'], ['open', 'в работе'], ['done', 'ответил']],
 };
 const statusLabel = (topic, s) => (STATUSES[topic].find(([k]) => k === s) || [, s])[1];
 let THREADS = [], tfilter = 'all', CUR = null;
@@ -420,7 +422,7 @@ async function loadThreads() {
 }
 
 function renderMessages() {
-  const F = [['all', 'Все'], ['unread', 'Непрочитанные'], ['specialist', 'Специалист'], ['idea', 'Идеи'], ['support', 'Поддержка']];
+  const F = [['all', 'Все'], ['unread', 'Непрочитанные'], ['specialist', 'Специалист'], ['idea', 'Идеи'], ['support', 'Поддержка'], ['pro', 'Коллеги']];
   const list = THREADS.filter((t) => tfilter === 'all' || (tfilter === 'unread' ? t.unread : t.topic === tfilter));
   const last = (t) => !t.last ? '' : t.last.kind === 'report' ? '📊 Снимок недели' : t.last.kind === 'booking' ? '📅 Запись на консультацию'
     : t.last.kind === 'booking_cancel' ? 'Запись отменена' : t.last.kind === 'status' ? 'Статус изменён' : `${t.last.author === 'admin' ? 'Вы: ' : ''}${t.last.body}`;
@@ -428,7 +430,7 @@ function renderMessages() {
     <div class="card tlist">
       <div class="chips">${F.map(([k, l]) => `<button class="chip ${tfilter === k ? 'on' : ''}" data-tf="${k}">${l}</button>`).join('')}</div>
       ${list.map((t) => `<button class="titem ${CUR?.thread.id === t.id ? 'cur' : ''}" data-open="${esc(t.id)}">
-        <span><span class="pill ${t.topic === 'specialist' ? 'g' : t.topic === 'support' ? 'z' : ''}">${TOPIC[t.topic]}</span> ${who(t)}${t.unread ? `<i class="nb">${t.unread}</i>` : ''}</span>
+        <span><span class="pill ${t.topic === 'specialist' || t.topic === 'pro' ? 'g' : t.topic === 'support' ? 'z' : ''}">${TOPIC[t.topic]}</span> ${who(t)}${t.unread ? `<i class="nb">${t.unread}</i>` : ''}</span>
         <span class="muted small">${ago(t.updated_at)}</span><span class="snip">${esc(last(t))}</span></button>`).join('') || '<p class="muted">Пока нет сообщений.</p>'}
     </div>
     <div class="card tview" id="tview">${CUR ? threadHtml() : '<p class="muted">Выберите переписку слева.</p>'}</div></div>`;
@@ -462,17 +464,30 @@ function threadHtml() {
     }
     if (m.kind === 'booking_cancel') return `<li class="s">Запись на ${when(m.data?.start)} отменена ${m.data?.by === 'admin' ? 'вами' : 'пользователем'}${time}</li>`;
     if (m.kind === 'status') return `<li class="s">Статус: ${esc(statusLabel('idea', m.data?.status))} — пользователь получил уведомление${time}</li>`;
-    return `<li class="${m.author === 'admin' ? 'a' : 'u'}"><p>${esc(m.body)}</p>${time}</li>`;
+    const ints = (m.data?.interests || []).map((k) => `<span class="pill g">${esc(PRO_INT[k] || k)}</span>`).join(' ');
+    return `<li class="${m.author === 'admin' ? 'a' : 'u'}">${ints ? `<div style="margin-bottom:6px">${ints}</div>` : ''}${m.body ? `<p>${esc(m.body)}</p>` : ''}${time}</li>`;
   };
-  const ownerText = o.name ? `<b>${esc(o.name)}</b> · профиль, устройств: ${o.profile_devices}` : `<b>Аноним</b> · устройство №${esc(o.device)}`;
+  const pro = t.topic === 'pro';
+  const contactLink = (c) => {
+    const s = String(c || '').trim();
+    if (/^@?[A-Za-z0-9_]{5,32}$/.test(s) && !/^\d+$/.test(s.replace('@', ''))) return `<a href="https://t.me/${esc(s.replace('@', ''))}" target="_blank" rel="noopener">${esc(s)}</a>`;
+    if (/^https:\/\/t\.me\/[A-Za-z0-9_]{5,32}$/.test(s)) return `<a href="${esc(s)}" target="_blank" rel="noopener">${esc(s)}</a>`;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return `<a href="mailto:${esc(s)}">${esc(s)}</a>`;
+    if (/^\+?[\d\s()-]{7,20}$/.test(s)) return `<a href="tel:${esc(s.replace(/[^\d+]/g, ''))}">${esc(s)}</a>`;
+    return esc(s);
+  };
+  const ownerText = pro ? `<b>${esc(o.name)}</b> · заявка с сайта · контакт: ${contactLink(o.contact)}`
+    : o.name ? `<b>${esc(o.name)}</b> · профиль, устройств: ${o.profile_devices}` : `<b>Аноним</b> · устройство №${esc(o.device)}`;
   return `<button class="btn back-list" data-back>← К списку</button>
-    <div class="tview-head"><div><span class="pill">${TOPIC[t.topic]}</span> ${ownerText}<div class="muted small">${PLAT[o.platform || 'unknown'] || esc(o.platform || '')} · начато ${when(t.created_at)}</div></div>
+    <div class="tview-head"><div><span class="pill">${TOPIC[t.topic]}</span> ${ownerText}<div class="muted small">${pro ? 'со страницы «Специалистам»' : PLAT[o.platform || 'unknown'] || esc(o.platform || '')} · начато ${when(t.created_at)}</div></div>
       <label class="row small">Статус <select id="t-status">${STATUSES[t.topic].map(([k, l]) => `<option value="${k}" ${k === t.status ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     ${bookings.length ? `<p class="small">Ближайшая запись: <b>${when(bookings[0].start)}</b>${safeUrl(bookings[0].meet) ? ` · <a href="${esc(bookings[0].meet)}" target="_blank" rel="noopener">видеовстреча</a>` : ''}</p>` : ''}
     <ul class="msgs" id="t-msgs">${messages.map(item).join('')}</ul>
-    <form id="t-reply"><textarea id="t-body" rows="4" maxlength="4000" placeholder="Ответ — придёт пользователю уведомлением"></textarea>
+    ${pro ? `<p class="small">Специалист пишет с сайта и ответа в приложении не увидит — ответьте по контакту: ${contactLink(o.contact)}. Потом отметьте статус «ответил».</p>
+      <button class="btn" type="button" id="t-del" style="color:var(--zero-ink)">Удалить заявку</button>`
+    : `<form id="t-reply"><textarea id="t-body" rows="4" maxlength="4000" placeholder="Ответ — придёт пользователю уведомлением"></textarea>
       <div class="row" style="margin-top:8px;justify-content:space-between"><button class="btn primary">Отправить</button>
-      <button class="btn" type="button" id="t-del" style="color:var(--zero-ink)">Удалить переписку</button></div></form>`;
+      <button class="btn" type="button" id="t-del" style="color:var(--zero-ink)">Удалить переписку</button></div></form>`}`;
 }
 
 function bindThread() {
