@@ -413,8 +413,9 @@ async function runCron(env, now = Date.now()) {
   // 4. Напоминание о консультации за час
   try { stats.reminded = await remindBookings(env, now); } catch (e) { console.log('remind', String(e)); }
 
-  // 5. Раз в час: одно уведомление «помогите нам стать лучше» тем, кто перестал пользоваться
-  if (env.FEEDBACK_ANY_TIME === '1' || new Date(now).getUTCMinutes() === 17) {
+  // 5. Раз в сутки (09:17 UTC = 12:17 по Москве): одно уведомление «помогите нам стать лучше» тем, кто перестал пользоваться
+  const d = new Date(now);
+  if (env.FEEDBACK_ANY_TIME === '1' || (d.getUTCHours() === 9 && d.getUTCMinutes() === 17)) {
     try { stats.asked = await askDropped(env, now); } catch (e) { console.log('feedback', String(e)); }
   }
   return stats;

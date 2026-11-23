@@ -29,10 +29,10 @@ function awake(u, now) {
   return ((m - from + 1440) % 1440) <= len - 120;
 }
 
-/** Крон: одно уведомление каждому «пропавшему» устройству (за всё время) */
+/** Крон раз в сутки: одно уведомление каждому «пропавшему» устройству (за всё время), если у человека сейчас день */
 export async function askDropped(env, now) {
   const { results } = await env.DB.prepare(`SELECT u.id, u.tz, u.wake_start, u.wake_end, u.push_endpoint, u.push_p256dh, u.push_auth
-    FROM users u WHERE u.feedback_asked_at IS NULL AND ${DROPPED} LIMIT 25`).bind(now).all();
+    FROM users u WHERE u.feedback_asked_at IS NULL AND ${DROPPED} LIMIT 200`).bind(now).all();
   const anyTime = env.FEEDBACK_ANY_TIME === '1'; // для локальных тестов
   let sent = 0;
   for (const u of results) {
