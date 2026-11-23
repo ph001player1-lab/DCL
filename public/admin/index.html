@@ -312,10 +312,26 @@ function renderOverview() {
       <div class="legend"><span><i class="sw" style="background:var(--one-soft)"></i>доставлено</span><span><i class="sw" style="background:var(--one)"></i>отвечено</span></div></div>
     <div class="card"><div class="card-head"><h2>Устройств, ответивших на сигналы, по дням</h2><span class="muted small">приблизительно активные пользователи</span></div>
       ${dayChart(DATA.daily.pings, 'users', (d, r) => `${dLabel(d)}: ${r.users || 0} устройств ответили`)}</div>
+    ${feedbackCard()}
     <div class="card"><h2>Платформы</h2>
       <div class="scroll"><table><tr><th>Платформа</th><th class="num">Устройств</th><th class="num">Как приложение</th><th class="num">Активны 7 дн.</th></tr>
       ${DATA.platforms.map((p) => `<tr><td>${PLAT[p.platform] || esc(p.platform)}</td><td class="num">${p.n}</td><td class="num">${p.installed || 0}</td><td class="num">${p.active_7d || 0}</td></tr>`).join('')}</table></div>
       <p class="muted small">Платформа и способ запуска записываются, когда приложение открывается после обновления. У старых устройств они появятся при следующем запуске.</p></div>`;
+}
+
+function feedbackCard() {
+  const f = DATA.feedback; if (!f) return '';
+  const reasons = Object.entries(f.reasons).map(([k, n]) => ({ label: FB_REASON[k] || k, n })).sort((a, b) => b.n - a.n);
+  const acts = Object.entries(f.actions).map(([k, n]) => ({ label: FB_ACTION[k] || k, n }));
+  return `<div class="card"><div class="card-head"><h2>Почему перестают пользоваться</h2><span class="muted small">ответили на сигналы меньше чем на 10% и не открывают приложение 3+ дня</span></div>
+    <div class="kpis" style="margin-bottom:10px">
+      <div class="kpi"><span>Сейчас «пропали»</span><b>${f.dropped_now}</b><small>сигналы включены, паузы нет</small></div>
+      <div class="kpi"><span>Спросили «что улучшить»</span><b>${f.asked}</b><small>одно уведомление на устройство</small></div>
+      <div class="kpi"><span>Ответили после вопроса</span><b>${f.answered_after_ask}</b><small>${f.asked ? pct(f.answered_after_ask, f.asked) : '—'} · всего отзывов ${f.answers}, своими словами ${f.texts}</small></div>
+      <div class="kpi"><span>Удалили или запретили уведомления</span><b>${f.gone}</b><small>спросить их уже нельзя</small></div>
+    </div>
+    ${f.answers ? `<h2 style="font-size:.95rem">Что мешает</h2>${hbars(reasons, null, 'zero')}<h2 style="font-size:.95rem;margin-top:14px">Что выбрали сразу</h2>${hbars(acts, null)}
+      <p class="muted small">Отзывы своими словами — во вкладке «Сообщения», фильтр «Отзывы».</p>` : '<p class="muted small">Отзывов пока нет.</p>'}</div>`;
 }
 
 // ---------- Устройства ----------
@@ -411,13 +427,17 @@ function renderLoad() {
 }
 
 // ---------- Сообщения ----------
-const TOPIC = { support: 'Поддержка', idea: 'Идея', specialist: 'Специалист', pro: 'Коллега' };
+const TOPIC = { support: 'Поддержка', idea: 'Идея', specialist: 'Специалист', pro: 'Коллега', feedback: 'Отзыв' };
+const FB_REASON = { often: 'Слишком часто', time: 'Неудобное время', forget: 'Забываю, не замечаю', unclear: 'Непонятно, что дают ответы',
+  hard: 'Долго или сложно', nouse: 'Нет пользы', break: 'Перерыв, вернусь', other: 'Другое' };
+const FB_ACTION = { fewer: 'Реже — 3 в день', pause: 'Пауза на неделю', off: 'Выключил сигналы' };
 const PRO_INT = { supervision: 'Супервизия', method: 'Консультация по методу', stats: 'Статистика', exchange: 'Обмен опытом' };
 const STATUSES = {
   support: [['new', 'новое'], ['open', 'в работе'], ['done', 'решено']],
   idea: [['new', 'новая'], ['accepted', 'принята'], ['in_progress', 'в работе'], ['done', 'сделана'], ['declined', 'пока не в планах']],
   specialist: [['new', 'новое'], ['open', 'идёт разговор'], ['done', 'завершено']],
   pro: [['new', 'новая'], ['open', 'в работе'], ['done', 'ответил']],
+  feedback: [['new', 'новый'], ['open', 'в работе'], ['done', 'учтён']],
 };
 const statusLabel = (topic, s) => (STATUSES[topic].find(([k]) => k === s) || [, s])[1];
 let THREADS = [], tfilter = 'all', CUR = null;
@@ -436,7 +456,7 @@ async function loadThreads() {
 }
 
 function renderMessages() {
-  const F = [['all', 'Все'], ['unread', 'Непрочитанные'], ['specialist', 'Специалист'], ['idea', 'Идеи'], ['support', 'Поддержка'], ['pro', 'Коллеги']];
+  const F = [['all', 'Все'], ['unread', 'Непрочитанные'], ['specialist', 'Специалист'], ['idea', 'Идеи'], ['support', 'Поддержка'], ['pro', 'Коллеги'], ['feedback', 'Отзывы']];
   const list = THREADS.filter((t) => tfilter === 'all' || (tfilter === 'unread' ? t.unread : t.topic === tfilter));
   const last = (t) => !t.last ? '' : t.last.kind === 'report' ? '📊 Снимок недели' : t.last.kind === 'booking' ? '📅 Запись на консультацию'
     : t.last.kind === 'booking_cancel' ? 'Запись отменена' : t.last.kind === 'status' ? 'Статус изменён' : `${t.last.author === 'admin' ? 'Вы: ' : ''}${t.last.body}`;
@@ -478,7 +498,9 @@ function threadHtml() {
     }
     if (m.kind === 'booking_cancel') return `<li class="s">Запись на ${when(m.data?.start)} отменена ${m.data?.by === 'admin' ? 'вами' : 'пользователем'}${time}</li>`;
     if (m.kind === 'status') return `<li class="s">Статус: ${esc(statusLabel('idea', m.data?.status))} — пользователь получил уведомление${time}</li>`;
-    const ints = (m.data?.interests || []).map((k) => `<span class="pill g">${esc(PRO_INT[k] || k)}</span>`).join(' ');
+    const ints = [...(m.data?.interests || []).map((k) => `<span class="pill g">${esc(PRO_INT[k] || k)}</span>`),
+      ...(m.data?.reasons || []).map((k) => `<span class="pill z">${esc(FB_REASON[k] || k)}</span>`),
+      ...(m.data?.action ? [`<span class="pill">${esc(FB_ACTION[m.data.action] || m.data.action)}</span>`] : [])].join(' ');
     return `<li class="${m.author === 'admin' ? 'a' : 'u'}">${ints ? `<div style="margin-bottom:6px">${ints}</div>` : ''}${m.body ? `<p>${esc(m.body)}</p>` : ''}${time}</li>`;
   };
   const pro = t.topic === 'pro';

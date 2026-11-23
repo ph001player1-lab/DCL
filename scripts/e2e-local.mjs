@@ -299,6 +299,37 @@ assert.equal(r.body.owner.contact, '@anna_psy'); assert.deepEqual(r.body.message
 assert.equal((await api(`/api/admin/threads/${proT.id}`, { method: 'PUT', body: JSON.stringify({ status: 'done' }) }, session)).status, 200);
 await api(`/api/admin/threads/${proT.id}/delete`, { method: 'POST' }, session);
 
+// обратная связь «пропавших»: одно уведомление, ответ, быстрая настройка, отзыв в «Сообщения», статистика
+const regD = (await api('/api/register', { method: 'POST', body: JSON.stringify({ tz: 'Europe/Moscow', pings_per_day: 8 }) })).body;
+const tokenD = tokenOf(regD);
+await api('/api/subscribe', { method: 'POST', body: JSON.stringify({ endpoint: `http://127.0.0.1:9999${PUSH_PATH}`, keys: { p256dh: ua.getPublicKey('base64url'), auth } }) }, tokenD);
+const old = Date.now() - 5 * 86400_000;
+sql(`UPDATE users SET created_at = ${old}, last_seen = ${old} WHERE id = '${regD.id}'`);
+sql(`DELETE FROM pings WHERE user_id = '${regD.id}'`);
+sql(`INSERT INTO pings (id, user_id, local_date, scheduled_at, status) VALUES ${Array.from({ length: 12 }, (_, i) =>
+  `('fb${i}_${regD.id.slice(0, 8)}', '${regD.id}', '2026-01-01', ${Date.now() - (i + 1) * 36_000_000}, '${i ? 'expired' : 'answered'}')`).join(',')}`); // 1 из 12 — меньше 10%
+let mark = received.length;
+await fetch(`${BASE}/__scheduled?cron=*+*+*+*+*`); await new Promise((res) => setTimeout(res, 800));
+assert.ok(received.slice(mark).some((p) => p.type === 'feedback'), 'уведомление «помогите нам стать лучше»');
+assert.ok(sql(`SELECT feedback_asked_at FROM users WHERE id = '${regD.id}'`)[0].feedback_asked_at > 0);
+mark = received.length;
+await fetch(`${BASE}/__scheduled?cron=*+*+*+*+*`); await new Promise((res) => setTimeout(res, 800));
+assert.ok(!received.slice(mark).some((p) => p.type === 'feedback'), 'второй раз не спрашиваем');
+assert.equal((await api('/api/feedback', { method: 'POST', body: '{}' }, tokenD)).status, 400);
+r = await api('/api/feedback', { method: 'POST', body: JSON.stringify({ reasons: ['often', 'time', 'bogus'], text: 'Слишком много сигналов утром', action: 'fewer' }) }, tokenD);
+assert.equal(r.status, 200, JSON.stringify(r.body)); assert.equal(r.body.user.pings_per_day, 3);
+r = await api('/api/admin/threads', {}, session);
+const fbT = r.body.threads.find((t) => t.topic === 'feedback' && t.last?.body === 'Слишком много сигналов утром');
+assert.ok(fbT && fbT.unread === 1, 'отзыв своими словами — в «Сообщениях»');
+r = await api('/api/admin/summary', {}, session);
+assert.ok(r.body.feedback.reasons.often >= 1 && r.body.feedback.actions.fewer >= 1 && r.body.feedback.answered_after_ask >= 1, JSON.stringify(r.body.feedback));
+assert.ok((await api('/api/threads', {}, tokenD)).body.threads.some((t) => t.id === fbT.id), 'пользователь видит свой отзыв в «Связи»');
+r = await api('/api/feedback', { method: 'POST', body: JSON.stringify({ action: 'off' }) }, tokenD);
+assert.equal(r.body.user.has_push, false);
+await api('/api/me', { method: 'DELETE' }, tokenD);
+assert.equal(sql(`SELECT COUNT(*) AS n FROM feedback WHERE user_id = '${regD.id}'`)[0].n, 0);
+console.log('feedback OK');
+
 // выход из профиля на B: переписка профиля больше не видна
 await api('/api/profile/logout', { method: 'POST' }, tokenB);
 assert.ok(!(await api('/api/threads', {}, tokenB)).body.threads.some((t) => t.id === specThread));

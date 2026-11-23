@@ -6,6 +6,7 @@ import { isValidTz, localDate, nextLocalMidnight, planDay } from './schedule.js'
 import { json, err, HttpError, sha256, randomId, readJson, int, vapid } from './util.js';
 import { handleContact, handleAdminContact, handleProContact, deleteDeviceContact, remindBookings } from './contact.js';
 import { handleGoogleAuth } from './google.js';
+import { handleFeedback, askDropped, feedbackStats } from './feedback.js';
 import STATIC from './static-files.js';
 
 const ANSWER_WINDOW_MIN = 30;           // сколько минут сигнал ждёт ответа
@@ -138,6 +139,7 @@ async function handleApi(request, env, url, ctx) {
   if (path === '/api/me' && method === 'DELETE') {
     await deleteDeviceContact(env, user); // переписка, профиль и записи на консультацию
     await env.DB.batch([
+      env.DB.prepare('DELETE FROM feedback WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM answers WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM pings WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
@@ -181,7 +183,7 @@ async function handleApi(request, env, url, ctx) {
     if (!user.push_endpoint) throw new HttpError(409, 'no_push');
     const r = await sendPush({ endpoint: user.push_endpoint, p256dh: user.push_p256dh, auth: user.push_auth },
       { type: 'ping', test: true, id: `test-${randomId(6)}`, t: now, exp: now + ANSWER_WINDOW_MIN * 60_000 }, vapid(env));
-    if (r.gone) await env.DB.prepare('UPDATE users SET push_endpoint = NULL WHERE id = ?').bind(user.id).run();
+    if (r.gone) await env.DB.prepare('UPDATE users SET push_endpoint = NULL, push_gone_at = ? WHERE id = ?').bind(now, user.id).run();
     return json({ ok: r.ok, status: r.status });
   }
 
@@ -231,6 +233,8 @@ async function handleApi(request, env, url, ctx) {
     await env.DB.prepare('DELETE FROM answers WHERE user_id = ?').bind(user.id).run();
     return json({ ok: true });
   }
+
+  if (path === '/api/feedback' && method === 'POST') return handleFeedback(request, env, ctx, user, now, { replanToday, publicUser });
 
   const r = await handleContact(request, env, ctx, user, path, method, url);
   if (r) return r;
@@ -315,6 +319,7 @@ async function handleAdmin(request, env, path, url, ctx) {
       answers: rows(6)[0], zero_bits: rows(7)[0], zero_codes: zeroCodes, level: rows(9)[0],
       top_codes: rows(10), by_category: rows(11), by_company: rows(12),
       load: { ...rows(13)[0], db_bytes: r[13].meta?.size_after ?? null },
+      feedback: await feedbackStats(env, now),
     });
   }
 
@@ -390,7 +395,7 @@ async function runCron(env, now = Date.now()) {
         updates.push(DB.prepare("UPDATE pings SET status = 'sent', sent_at = ? WHERE id = ?").bind(now, p.id));
         stats.sent++;
       } else if (r.gone) {
-        updates.push(DB.prepare('UPDATE users SET push_endpoint = NULL, push_p256dh = NULL, push_auth = NULL WHERE id = ?').bind(p.user_id));
+        updates.push(DB.prepare('UPDATE users SET push_endpoint = NULL, push_p256dh = NULL, push_auth = NULL, push_gone_at = ? WHERE id = ?').bind(now, p.user_id));
         close('failed');
       } else {
         console.log('push error', r.status, p.id); // повторим через минуту, пока не истечёт SEND_GRACE_MS
@@ -407,6 +412,11 @@ async function runCron(env, now = Date.now()) {
 
   // 4. Напоминание о консультации за час
   try { stats.reminded = await remindBookings(env, now); } catch (e) { console.log('remind', String(e)); }
+
+  // 5. Раз в час: одно уведомление «помогите нам стать лучше» тем, кто перестал пользоваться
+  if (env.FEEDBACK_ANY_TIME === '1' || new Date(now).getUTCMinutes() === 17) {
+    try { stats.asked = await askDropped(env, now); } catch (e) { console.log('feedback', String(e)); }
+  }
   return stats;
 }
 
@@ -506,7 +516,7 @@ export default {
   },
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runCron(env, event.scheduledTime).then((s) => {
-      if (s.planned || s.sent || s.failed || s.reminded) console.log('cron', JSON.stringify(s));
+      if (s.planned || s.sent || s.failed || s.reminded || s.asked) console.log('cron', JSON.stringify(s));
     }));
   },
 };

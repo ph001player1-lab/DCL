@@ -7,16 +7,22 @@ import { PARTNER_LABEL, BIT_NAMES, decodeCode, formatCode } from './dcl.js';
 
 let C; // помощники приложения: S, $view, esc, toast, go, route, render, ensureRegistered, lastDates, plural, pct
 export function initContact(ctx) { C = ctx; }
-export const CONTACT_ROUTES = ['chat', 'report', 'book', 'profile'];
+export const CONTACT_ROUTES = ['chat', 'report', 'book', 'profile', 'feedback'];
 
-const TOPIC_TITLE = { support: 'Техподдержка', idea: 'Идея: настроить под себя', specialist: 'Вопрос специалисту' };
-const TOPIC_SHORT = { support: 'Техподдержка', idea: 'Идея', specialist: 'Специалист' };
-const ADMIN_NAME = { support: 'Поддержка', idea: 'Команда DCL-832', specialist: 'Специалист' };
+const TOPIC_TITLE = { support: 'Техподдержка', idea: 'Идея: настроить под себя', specialist: 'Вопрос специалисту', feedback: 'Отзыв: что улучшить' };
+const TOPIC_SHORT = { support: 'Техподдержка', idea: 'Идея', specialist: 'Специалист', feedback: 'Отзыв' };
+const ADMIN_NAME = { support: 'Поддержка', idea: 'Команда DCL-832', specialist: 'Специалист', feedback: 'Команда DCL-832' };
 const STATUS_LABEL = {
   support: { new: 'отправлено', open: 'в работе', done: 'решено' },
   idea: { new: 'отправлена', accepted: 'принята', in_progress: 'в работе', done: 'сделана', declined: 'пока не в планах' },
   specialist: { new: 'отправлено', open: 'идёт разговор', done: 'завершено' },
+  feedback: { new: 'отправлен', open: 'в работе', done: 'учтён' },
 };
+// «Помогите нам стать лучше» — для тех, кто перестал отвечать на сигналы
+const FB_REASONS = [['often', 'Сигналы приходят слишком часто'], ['time', 'Приходят в неудобное время'], ['forget', 'Забываю или не замечаю уведомления'],
+  ['unclear', 'Непонятно, что дают ответы'], ['hard', 'Отвечать долго или сложно'], ['nouse', 'Не увидел пользы для себя'],
+  ['break', 'Просто перерыв — вернусь позже'], ['other', 'Другое']];
+const FB_ACTIONS = [['fewer', 'Реже — 3 сигнала в день'], ['pause', 'Пауза на неделю'], ['off', 'Выключить сигналы']];
 const NEW_TEXT = {
   idea: {
     lead: 'Чего не хватает? Своя категория, вопрос, вид отчёта, время сигналов — опишите, как вам было бы удобно. Лучшие идеи сделаем для всех, а часть настроим лично для вас.',
@@ -29,7 +35,7 @@ const CRISIS = '<p class="hint">Это не экстренная помощь. �
 
 // ---------- состояние ----------
 
-const st = { threads: null, unread: 0, thread: null, slots: null, pick: null, newCode: null, reportDays: 7, sending: false };
+const st = { threads: null, unread: 0, thread: null, slots: null, pick: null, newCode: null, reportDays: 7, sending: false, fb: { reasons: new Set(), action: null } };
 let poll = null;
 export function stopContactPoll() { if (poll) { clearInterval(poll); poll = null; } }
 
@@ -118,6 +124,7 @@ export async function renderContact(name, q) {
   if (name === 'report') return renderReport(q);
   if (name === 'book') return renderBook(q);
   if (name === 'profile') return renderProfile(q);
+  if (name === 'feedback') return renderFeedback();
   if (q.get('t')) return renderThread(q.get('t'));
   if (q.get('new')) return renderNew(q.get('new'));
   return renderHome();
@@ -207,7 +214,8 @@ function msgHtml(m, topic, cancelled) {
   }
   if (m.kind === 'status') return `<li class="msg sys"><p>Статус идеи: <b>${STATUS_LABEL.idea[m.data?.status] || ''}</b></p>${time}</li>`;
   if (m.author === 'admin') return `<li class="msg them"><b>${ADMIN_NAME[topic]}</b><p>${nl2br(m.body)}</p>${time}</li>`;
-  return `<li class="msg me"><p>${nl2br(m.body)}</p>${time}</li>`;
+  const why = (m.data?.reasons || []).map((k) => FB_REASONS.find(([r]) => r === k)?.[1]).filter(Boolean);
+  return `<li class="msg me">${why.length ? `<small>${C.esc(why.join(' · '))}</small>` : ''}<p>${nl2br(m.body)}</p>${time}</li>`;
 }
 
 function drawThread() {
@@ -356,6 +364,20 @@ async function renderProfile(q) {
       <button class="btn danger wide" data-act="c-delete">Удалить профиль и переписку</button></section>`;
 }
 
+function renderFeedback() {
+  const f = st.fb;
+  const text = document.getElementById('fb-text')?.value ?? f.text ?? '';
+  C.$view.innerHTML = `<div class="ans-top"><span></span><button class="x" data-act="go" data-h="#today" aria-label="Закрыть">✕</button></div>
+    <h1>Помогите нам стать лучше</h1>
+    <p class="lead">Что улучшить в DCL-832? Отметьте, что мешает, — можно несколько.</p>
+    <div class="fb-list">${FB_REASONS.map(([k, l]) => `<button class="fb-opt ${f.reasons.has(k) ? 'on' : ''}" data-act="c-fb-r" data-v="${k}"><i>✓</i>${l}</button>`).join('')}</div>
+    <textarea id="fb-text" class="fb-text" rows="3" maxlength="2000" placeholder="Своими словами: что изменить (необязательно)">${C.esc(text)}</textarea>
+    <h2>Настроить сигналы прямо сейчас</h2>
+    <div class="chips">${FB_ACTIONS.map(([k, l]) => `<button class="chip ${f.action === k ? 'on' : ''}" data-act="c-fb-a" data-v="${k}">${l}</button>`).join('')}</div>
+    <button class="btn primary wide" data-act="c-fb-send" ${st.sending ? 'disabled' : ''}>Отправить</button>
+    <p class="muted small-note">Ответ анонимный. Если напишете своими словами — ответ команды придёт во вкладку «Связь».</p>`;
+}
+
 // ---------- действия ----------
 
 async function withBusy(fn) {
@@ -377,6 +399,24 @@ async function withBusy(fn) {
 export async function contactAct(act, el) {
   switch (act) {
     case 'c-rdays': st.reportDays = Number(el.dataset.v); renderReport(C.route().q); return true;
+    case 'c-fb-r': { const k = el.dataset.v; st.fb.reasons.has(k) ? st.fb.reasons.delete(k) : st.fb.reasons.add(k); renderFeedback(); return true; }
+    case 'c-fb-a': st.fb.action = st.fb.action === el.dataset.v ? null : el.dataset.v; renderFeedback(); return true;
+    case 'c-fb-send': {
+      const text = document.getElementById('fb-text')?.value.trim() || '';
+      if (!st.fb.reasons.size && !text && !st.fb.action) { C.toast('Отметьте, что мешает, напишите или выберите настройку'); return true; }
+      await withBusy(async () => {
+        await C.ensureRegistered();
+        const r = await api('/api/feedback', { method: 'POST', body: { reasons: [...st.fb.reasons], text, action: st.fb.action } });
+        if (st.fb.action === 'off') {
+          try { const reg = await navigator.serviceWorker.getRegistration('/'); await (await reg?.pushManager.getSubscription())?.unsubscribe(); } catch {}
+        }
+        C.applyServerUser(r.user);
+        st.fb = { reasons: new Set(), action: null }; st.threads = null;
+        C.toast('Спасибо! Это поможет сделать приложение лучше');
+        C.go('#today');
+      });
+      return true;
+    }
     case 'c-pick': st.pick = Number(el.dataset.v); renderBook(); return true;
     case 'c-copy': {
       const code = el.dataset.code || st.newCode;

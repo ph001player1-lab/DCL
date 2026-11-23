@@ -1,5 +1,5 @@
 // Service worker DCL-832: офлайн-работа, приём сигналов (push) и действия из уведомления.
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = `dcl832-${VERSION}`;
 const SHELL = [
   '/', '/site.css', '/app/', '/app/app.css', '/app/app.js', '/app/dcl.js', '/app/store.js', '/app/api.js', '/app/stats.js', '/app/contact.js',
@@ -82,7 +82,7 @@ const answerHash = (d) => `#answer?p=${encodeURIComponent(d.id)}&t=${d.t}&exp=${
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch {}
-  if (d.type === 'msg' || d.type === 'admin') { // текст сообщения в уведомление не попадает — только «пришёл ответ»
+  if (d.type === 'msg' || d.type === 'admin' || d.type === 'feedback') { // текст сообщения в уведомление не попадает — только «пришёл ответ»
     e.waitUntil((async () => {
       await self.registration.showNotification(d.title || 'DCL-832', {
         body: d.body || '', tag: `dcl-${d.type}-${d.thread || ''}`, renotify: true,
@@ -136,7 +136,7 @@ self.addEventListener('notificationclick', (e) => {
       await self.clients.openWindow(url);
       return;
     }
-    const hash = d.type === 'msg' ? `#chat${d.thread ? `?t=${encodeURIComponent(d.thread)}` : ''}` : d.id ? answerHash(d) : '#today';
+    const hash = d.type === 'feedback' ? '#feedback' : d.type === 'msg' ? `#chat${d.thread ? `?t=${encodeURIComponent(d.thread)}` : ''}` : d.id ? answerHash(d) : '#today';
     const app = wins.find((w) => new URL(w.url).pathname.startsWith('/app'));
     if (app) {
       await app.focus();

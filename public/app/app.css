@@ -341,3 +341,12 @@ h2 { font-size: 1.05rem; }
 .codebox.small { font-size: 1.3rem; padding: 12px; }
 .big-when { margin: 0; font-size: 1.15rem; font-weight: 700; }
 .hint a { color: inherit; font-weight: 700; }
+
+/* ---------- «Помогите нам стать лучше» ---------- */
+.fb-list { display: flex; flex-direction: column; gap: 8px; }
+.fb-opt { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px 14px; min-height: 48px; }
+.fb-opt i { flex: none; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--line); display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: .8rem; color: transparent; }
+.fb-opt.on { border-color: var(--accent); background: var(--one-soft); }
+.fb-opt.on i { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.fb-text { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px; font: inherit; color: inherit; resize: vertical; width: 100%; }
+.msg.me small { color: var(--muted); font-size: .8rem; }

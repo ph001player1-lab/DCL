@@ -11,9 +11,10 @@ const STATUSES = {
   idea: ['new', 'accepted', 'in_progress', 'done', 'declined'],
   specialist: ['new', 'open', 'done'],
   pro: ['new', 'open', 'done'], // заявки специалистов с сайта
+  feedback: ['new', 'open', 'done'], // отзывы «что улучшить» своими словами
 };
 const IDEA_STATUS = { accepted: 'принята', in_progress: 'в работе', done: 'сделана', declined: 'пока не в планах' };
-const TOPIC_TITLE = { support: 'Техподдержка', idea: 'Идея', specialist: 'Вопрос специалисту', pro: 'Заявка специалиста' };
+const TOPIC_TITLE = { support: 'Техподдержка', idea: 'Идея', specialist: 'Вопрос специалисту', pro: 'Заявка специалиста', feedback: 'Отзыв: что улучшить' };
 const PRO_INTERESTS = { supervision: 'Супервизия', method: 'Консультация по методу', stats: 'Статистика', exchange: 'Обмен опытом' };
 const MAX_BODY = 4000;
 const MAX_REPORT = 24000;
@@ -92,7 +93,7 @@ async function notifyOwner(env, thread, payload) {
   await Promise.all(results.map(async (u) => {
     try {
       const r = await sendPush({ endpoint: u.push_endpoint, p256dh: u.push_p256dh, auth: u.push_auth }, { type: 'msg', thread: thread.id, topic: thread.topic, ...payload }, v);
-      if (r.gone) await env.DB.prepare('UPDATE users SET push_endpoint = NULL, push_p256dh = NULL, push_auth = NULL WHERE id = ?').bind(u.id).run();
+      if (r.gone) await env.DB.prepare('UPDATE users SET push_endpoint = NULL, push_p256dh = NULL, push_auth = NULL, push_gone_at = ? WHERE id = ?').bind(Date.now(), u.id).run();
     } catch (e) { console.log('notify owner', String(e)); }
   }));
 }
@@ -159,6 +160,20 @@ export async function deleteDeviceContact(env, user) {
     env.DB.prepare('DELETE FROM messages WHERE thread_id IN (SELECT id FROM threads WHERE user_id = ? AND profile_id IS NULL)').bind(user.id),
     env.DB.prepare('DELETE FROM threads WHERE user_id = ? AND profile_id IS NULL').bind(user.id),
   ]);
+}
+
+// ---------- отзыв «что улучшить» своими словами → «Сообщения» с push администратору ----------
+
+export async function createFeedbackThread(env, ctx, user, { text, reasons, action, now }) {
+  const id = randomId(12);
+  const hasProfile = !!user.profile_name;
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO threads (id, user_id, profile_id, topic, status, created_at, updated_at, last_from, unread_admin)
+      VALUES (?, ?, ?, 'feedback', 'new', ?, ?, 'user', 1)`).bind(id, user.id, hasProfile ? user.profile_id : null, now, now),
+    msgStmt(env, { thread: id, user_id: user.id, author: 'user', body: text, data: { reasons, action }, now }),
+  ]);
+  later(ctx, notifyAdmin(env, { thread: id, title: 'Отзыв: что улучшить', body: ownerLabel(user) }));
+  return id;
 }
 
 // ---------- форма специалистов на сайте (без устройства и профиля) ----------
@@ -412,7 +427,7 @@ export async function handleAdminContact(request, env, ctx, path, method, url) {
       DB.prepare(`UPDATE threads SET updated_at = ?, last_from = 'admin', unread_user = unread_user + 1, unread_admin = 0,
         status = CASE WHEN status = 'new' AND topic != 'idea' THEN 'open' ELSE status END WHERE id = ?`).bind(now, t.id),
     ]);
-    const title = { specialist: 'Ответ специалиста', support: 'Ответ поддержки', idea: 'Ответ по вашей идее' }[t.topic];
+    const title = { specialist: 'Ответ специалиста', support: 'Ответ поддержки', idea: 'Ответ по вашей идее', feedback: 'Ответ на ваш отзыв' }[t.topic];
     later(ctx, notifyOwner(env, t, { title, body: 'Откройте DCL-832, чтобы прочитать.' }));
     return json({ ok: true }, 201);
   }

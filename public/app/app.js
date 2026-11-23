@@ -214,7 +214,7 @@ async function render() {
   stopContactPoll();
   if (!S.onboarded) { renderOnboarding(); return; }
   const { name, q } = route();
-  $tabs.hidden = name === 'answer' || name === 'new';
+  $tabs.hidden = name === 'answer' || name === 'new' || name === 'feedback';
   const tab = CONTACT_ROUTES.includes(name) ? 'chat' : name;
   for (const a of $tabs.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === tab);
   if (CONTACT_ROUTES.includes(name)) return renderContact(name, q);
@@ -814,7 +814,7 @@ if ('serviceWorker' in navigator) {
 
 // ---------- запуск ----------
 
-initContact({ S, $view, esc, toast, go, route, render, ensureRegistered, lastDates, plural, pct });
+initContact({ S, $view, esc, toast, go, route, render, ensureRegistered, lastDates, plural, pct, applyServerUser });
 
 (async function boot() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((e) => console.warn('sw', e));
