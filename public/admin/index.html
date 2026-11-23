@@ -202,8 +202,6 @@ document.querySelector('.tabs').addEventListener('click', (e) => {
   showTab(b.dataset.tab);
   if (b.dataset.tab === 'booking') loadBooking();
 });
-if (token) load();
-
 const get = (p) => fetch(p, { headers: { authorization: 'Bearer ' + token } });
 async function send(p, method, body) {
   const r = await fetch(p, { method, headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -606,6 +604,9 @@ document.addEventListener('pointermove', (e) => {
   tip.style.left = x + 'px'; tip.style.top = (e.clientY - 36) + 'px'; tip.style.opacity = 1;
 });
 document.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
+
+// запуск — в самом конце, когда все функции и константы уже объявлены
+if (token) load();
 </script>
 </body>
 </html>

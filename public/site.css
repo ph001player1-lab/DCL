@@ -244,3 +244,11 @@ footer p { margin: 6px 0; }
   .author img { max-width: 280px; }
   .nav-links a:not(.btn) { display: none; }
 }
+
+/* ---------- политика и условия ---------- */
+.doc { max-width: 760px; padding-top: 24px; padding-bottom: 56px; }
+.doc h1 { font-size: clamp(1.8rem, 4.4vw, 2.5rem); margin: 0 0 10px; }
+.doc h2 { font-size: 1.3rem; margin: 34px 0 10px; }
+.doc h3 { font-size: 1.05rem; margin: 20px 0 6px; }
+.doc p, .doc li { line-height: 1.6; }
+.doc ul { padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }

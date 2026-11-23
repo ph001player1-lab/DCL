@@ -653,7 +653,7 @@ async function renderSettings() {
     <section class="card about"><h2>О методе</h2>
       <p><b>D</b> — желание, <b>C</b> — согласие, <b>L</b> — разрешение среды. Один — 3 знака, вдвоём — 5: D₁ C₁ D₂ C₂ L. Код с нулями — стресс в самом действии.</p>
       <p>Эустресс — действие, которое вы начали сами по желанию и с согласием (D=1, C=1). Связь кодов с аллостатической нагрузкой — гипотеза модели, а не медицинское измерение.</p>
-      <p><a href="/" target="_blank">О диагностике</a> · <a href="/#books" target="_blank">Книги</a> · <a href="https://t.me/DCL832" target="_blank" rel="noopener">Канал</a> · <a href="#chat">Связь и консультация</a></p>
+      <p><a href="/" target="_blank">О диагностике</a> · <a href="/#books" target="_blank">Книги</a> · <a href="https://t.me/DCL832" target="_blank" rel="noopener">Канал</a> · <a href="#chat">Связь и консультация</a> · <a href="/privacy/" target="_blank">Конфиденциальность</a></p>
     </section>`;
 }
 

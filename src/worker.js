@@ -464,7 +464,7 @@ const NO_CACHE = /\.(html|js|css|webmanifest)$/;
 function serveStatic(request, url) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method Not Allowed', { status: 405 });
   let path = decodeURIComponent(url.pathname);
-  if (['/app', '/admin', '/webinar'].includes(path)) return Response.redirect(`${url.origin}${path}/${url.search}`, 301);
+  if (['/app', '/admin', '/webinar', '/privacy', '/terms'].includes(path)) return Response.redirect(`${url.origin}${path}/${url.search}`, 301);
   if (path.endsWith('/')) path += 'index.html';
   const f = STATIC[path];
   const headers = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin' };
