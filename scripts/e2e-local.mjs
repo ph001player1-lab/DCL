@@ -70,7 +70,10 @@ const google = http.createServer((req, res) => {
       return send(400, { error: 'invalid_grant' });
     }
     if (req.headers.authorization !== 'Bearer at-2' && req.headers.authorization !== 'Bearer at-1') return send(401, { error: 'auth' });
-    if (req.url === '/calendar/v3/freeBusy') return send(200, { calendars: { primary: { busy: gBusy } } });
+    if (req.method === 'GET' && req.url.startsWith('/calendar/v3/calendars/primary/events?')) {
+      return send(200, { items: [...gBusy.map((b) => ({ status: 'confirmed', start: { dateTime: b.start }, end: { dateTime: b.end } })),
+        { status: 'confirmed', transparency: 'transparent', start: { date: '2020-01-01' }, end: { date: '2030-01-01' } }] }); // «свободно» не мешает
+    }
     if (req.url.startsWith('/calendar/v3/calendars/primary/events') && req.method === 'POST') {
       const ev = JSON.parse(body); const id = 'ev' + (gEvents.size + 1);
       gEvents.set(id, ev);

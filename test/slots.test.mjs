@@ -38,3 +38,19 @@ test('проверка настроек записи', () => {
   assert.throws(() => cleanBookingConfig({ ...BOOKING_DEFAULTS, tz: 'Mars/Base' }), /bad_tz/);
   assert.throws(() => cleanBookingConfig({ ...BOOKING_DEFAULTS, days: 0 }), /bad_days/);
 });
+
+test('события календаря → занятое время (как freeBusy)', async () => {
+  const { eventsToBusy } = await import('../src/slots.js');
+  const busy = eventsToBusy([
+    { status: 'confirmed', start: { dateTime: '2026-11-24T10:00:00+03:00' }, end: { dateTime: '2026-11-24T11:30:00+03:00' } },
+    { status: 'confirmed', transparency: 'transparent', start: { dateTime: '2026-11-24T12:00:00+03:00' }, end: { dateTime: '2026-11-24T13:00:00+03:00' } },
+    { status: 'cancelled', start: { dateTime: '2026-11-24T14:00:00+03:00' }, end: { dateTime: '2026-11-24T15:00:00+03:00' } },
+    { status: 'confirmed', attendees: [{ self: true, responseStatus: 'declined' }], start: { dateTime: '2026-11-24T16:00:00+03:00' }, end: { dateTime: '2026-11-24T17:00:00+03:00' } },
+    { status: 'confirmed', eventType: 'workingLocation', start: { date: '2026-11-24' }, end: { date: '2026-11-25' } },
+    { status: 'confirmed', start: { date: '2026-11-26' }, end: { date: '2026-11-27' } }, // весь день, «занят»
+  ], 'Europe/Moscow');
+  assert.deepEqual(busy.map(([s, e]) => [iso(s), iso(e)]), [
+    ['2026-11-24T07:00', '2026-11-24T08:30'],
+    ['2026-11-25T21:00', '2026-11-26T21:00'],
+  ]);
+});

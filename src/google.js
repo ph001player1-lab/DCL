@@ -2,6 +2,7 @@
 // (свободное время и создание встреч с Google Meet). Без библиотек — обычные HTTPS-запросы.
 import { b64uToBytes, bytesToB64u } from './webpush.js';
 import { HttpError, json, randomId, sha256, getSetting, setSetting } from './util.js';
+import { eventsToBusy } from './slots.js';
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const SCOPES = 'openid email https://www.googleapis.com/auth/calendar.events';
@@ -76,14 +77,26 @@ async function cal(env, method, path, body) {
   return d;
 }
 
-/** Занятые интервалы основного календаря: [[startMs, endMs], ...] */
+/**
+ * Занятые интервалы основного календаря: [[startMs, endMs], ...].
+ * Считаем по списку событий: для него хватает доступа calendar.events
+ * (метод freeBusy требует отдельного разрешения).
+ */
 export async function freeBusy(env, timeMin, timeMax, tz) {
-  const d = await cal(env, 'POST', '/freeBusy', {
-    timeMin: new Date(timeMin).toISOString(), timeMax: new Date(timeMax).toISOString(), timeZone: tz, items: [{ id: 'primary' }],
-  });
-  const c = d?.calendars?.primary;
-  if (!c || c.errors?.length) throw new HttpError(502, 'calendar_error');
-  return (c.busy || []).map((b) => [Date.parse(b.start), Date.parse(b.end)]);
+  const items = [];
+  let page = '';
+  for (let i = 0; i < 10; i++) {
+    const q = new URLSearchParams({
+      timeMin: new Date(timeMin).toISOString(), timeMax: new Date(timeMax).toISOString(), singleEvents: 'true', maxResults: '250', timeZone: tz,
+      fields: 'items(status,transparency,eventType,start,end,attendees(self,responseStatus)),nextPageToken',
+    });
+    if (page) q.set('pageToken', page);
+    const d = await cal(env, 'GET', `/calendars/primary/events?${q}`);
+    items.push(...(d?.items || []));
+    page = d?.nextPageToken;
+    if (!page) break;
+  }
+  return eventsToBusy(items, tz);
 }
 
 /** Встреча в календаре специалиста со ссылкой Google Meet */

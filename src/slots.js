@@ -31,6 +31,23 @@ export function cleanBookingConfig(b) {
   return c;
 }
 
+/**
+ * События календаря → занятые интервалы, как в Google freeBusy: события «свободно» (transparent),
+ * отменённые, отклонённые приглашения и «рабочее место» не занимают время.
+ * Весь день (date без времени) — по поясу специалиста; конец — исключительный.
+ */
+export function eventsToBusy(items, tz) {
+  const out = [];
+  for (const e of items || []) {
+    if (e.status === 'cancelled' || e.transparency === 'transparent' || e.eventType === 'workingLocation') continue;
+    if ((e.attendees || []).some((a) => a.self && a.responseStatus === 'declined')) continue;
+    const t = (x) => (x?.dateTime ? Date.parse(x.dateTime) : x?.date ? localToUtc(x.date, 0, tz) : NaN);
+    const s = t(e.start), en = t(e.end);
+    if (Number.isFinite(s) && Number.isFinite(en) && en > s) out.push([s, en]);
+  }
+  return out;
+}
+
 const nextDate = (date, tz) => localDate(localToUtc(date, 1440 + 720, tz), tz); // полдень следующего дня — без ошибок на переходе времени
 
 /** Конец последнего дня окна записи (ms) */
