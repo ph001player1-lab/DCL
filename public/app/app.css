@@ -350,3 +350,7 @@ h2 { font-size: 1.05rem; }
 .fb-opt.on i { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .fb-text { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 12px; font: inherit; color: inherit; resize: vertical; width: 100%; }
 .msg.me small { color: var(--muted); font-size: .8rem; }
+
+/* ---------- сигналы остановлены ---------- */
+.stopped { display: flex; flex-direction: column; gap: 10px; }
+.stopped p { margin: 0; }

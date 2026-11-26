@@ -300,7 +300,7 @@ function renderOverview() {
       <div class="kpi"><span>Устройств всего</span><b>${u.total}</b><small>+${u.new_7d || 0} за 7 дней · +${u.new_1d || 0} за сутки</small></div>
       <div class="kpi"><span>Активны за сутки</span><b>${u.active_1d || 0}</b><small>за 7 дней: ${u.active_7d || 0}</small></div>
       <div class="kpi"><span>Установили как приложение</span><b>${u.installed || 0}</b><small>из ${u.total} · остальные в браузере или неизвестно</small></div>
-      <div class="kpi"><span>Сигналы включены</span><b>${u.with_push || 0}</b><small>на паузе: ${u.paused || 0}</small></div>
+      <div class="kpi"><span>Сигналы включены</span><b>${u.with_push || 0}</b><small>на паузе: ${(u.paused || 0) - (u.stopped || 0)} · остановили: ${u.stopped || 0}</small></div>
       <div class="kpi"><span>Дали согласие на данные</span><b>${u.consented || 0}</b><small>${pct(u.consented || 0, u.total)} устройств</small></div>
       <div class="kpi"><span>Пользуются через неделю</span><b>${ret.cohort ? pct(ret.retained || 0, ret.cohort) : '—'}</b><small>${ret.cohort ? `${ret.retained || 0} из ${ret.cohort} установивших 7+ дней назад` : 'пока нет устройств старше 7 дней'}</small></div>
       <div class="kpi"><span>Отвечено сигналов за 30 дней</span><b>${pct(ps.answered || 0, delivered)}</b><small>${ps.answered || 0} из ${delivered}</small></div>
@@ -341,7 +341,7 @@ function renderDevices() {
   const ok = (d) => filter === 'all' || (filter === 'active' && d.last_seen > week) || (filter === 'app' && d.standalone === 1)
     || (filter === 'browser' && d.standalone === 0) || (filter === 'nopush' && !d.has_push) || (filter === 'profile' && d.profile_name);
   const list = DEVICES.filter(ok);
-  const signals = (d) => !d.has_push ? '<span class="warn">выкл.</span>' : d.paused_until > Date.now() ? 'пауза' : `${d.pings_per_day} в день`;
+  const signals = (d) => !d.has_push ? '<span class="warn">выкл.</span>' : d.paused_until >= 4102444800000 ? '<span class="warn">остановлены</span>' : d.paused_until > Date.now() ? 'пауза' : `${d.pings_per_day} в день`;
   const win = (d) => `${String(Math.floor(d.wake_start / 60)).padStart(2, '0')}:${String(d.wake_start % 60).padStart(2, '0')}–${String(Math.floor(d.wake_end / 60)).padStart(2, '0')}:${String(d.wake_end % 60).padStart(2, '0')}`;
   $('tab-devices').innerHTML = `
     <div class="card">

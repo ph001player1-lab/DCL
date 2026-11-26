@@ -159,6 +159,16 @@ r = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ pings_per
 assert.equal(r.body.pings_per_day, 3);
 r = await api('/api/pause', { method: 'POST', body: JSON.stringify({ minutes: 120 }) }, token);
 assert.ok(r.body.paused_until > now);
+// остановить сигналы до возобновления: новый день не планируется
+r = await api('/api/pause', { method: 'POST', body: JSON.stringify({ stop: true }) }, token);
+assert.ok(r.body.paused_until >= Date.UTC(2100, 0, 1));
+const scheduledNow = () => sql(`SELECT COUNT(*) AS n FROM pings WHERE user_id = '${userId}' AND status = 'scheduled'`)[0].n;
+sql(`UPDATE users SET plan_until = 0, plan_date = '' WHERE id = '${userId}'`);
+const sBefore = scheduledNow();
+await fetch(`${BASE}/__scheduled?cron=*+*+*+*+*`); await new Promise((res) => setTimeout(res, 500));
+assert.equal(scheduledNow(), sBefore, 'остановленным сигналы не планируются');
+r = await api('/api/pause', { method: 'POST', body: JSON.stringify({ minutes: 0 }) }, token);
+assert.equal(r.body.paused_until, 0);
 
 // 8. Админка
 const adminToken = execFileSync('sh', ['-c', "grep ADMIN_TOKEN .dev.vars | cut -d= -f2"], { encoding: 'utf8' }).trim();

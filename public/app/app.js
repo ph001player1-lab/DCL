@@ -33,6 +33,11 @@ const pad = (n) => String(n).padStart(2, '0');
 const minToHHMM = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
 const hhmmToMin = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
 const fmtTime = (t) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: S.settings.tz });
+const STOPPED_UNTIL = Date.UTC(2100, 0, 1);
+const isStopped = () => S.settings.paused_until >= STOPPED_UNTIL;
+/** «Пауза до …»: время, если сегодня-завтра; иначе дата и время */
+const fmtUntil = (t) => (t - Date.now() < 20 * 3600_000 ? fmtTime(t)
+  : new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: S.settings.tz }));
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -498,7 +503,8 @@ async function renderToday() {
   const paused = S.settings.paused_until > now;
   const notice = !S.settings.has_push
     ? `<button class="notice" data-act="go" data-h="#settings"><b>Сигналы выключены.</b> Включите их в настройках, чтобы приходили случайные замеры.</button>`
-    : paused ? `<button class="notice" data-act="resume"><b>Пауза до ${fmtTime(S.settings.paused_until)}.</b> Нажмите, чтобы возобновить.</button>` : '';
+    : isStopped() ? `<button class="notice" data-act="resume"><b>Сигналы остановлены.</b> Нажмите, чтобы включить снова.</button>`
+    : paused ? `<button class="notice" data-act="resume"><b>Пауза до ${fmtUntil(S.settings.paused_until)}.</b> Нажмите, чтобы возобновить.</button>` : '';
 
   $view.innerHTML = `
     <header class="top"><div class="brand">${PALM}<span>DCL-832</span></div><div class="muted">${new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: S.settings.tz })}</div></header>
@@ -619,7 +625,7 @@ async function renderSettings() {
   const now = Date.now();
   const paused = S.settings.paused_until > now;
   const pushBlock = {
-    on: `<p class="ok">● Сигналы включены</p><button class="btn wide" data-act="test-ping">Прислать пробный сигнал</button>`,
+    on: isStopped() ? '' : `<p class="ok">● Сигналы включены</p><button class="btn wide" data-act="test-ping">Прислать пробный сигнал</button>`,
     off: isIOS() && !isStandalone()
       ? `<p class="muted">На iPhone сначала добавьте приложение на экран «Домой» (Поделиться → На экран «Домой»), затем откройте его оттуда.</p>`
       : `<button class="btn primary wide" data-act="enable-push" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Подключаю…' : 'Включить сигналы'}</button>`,
@@ -630,8 +636,12 @@ async function renderSettings() {
   $view.innerHTML = `
     <header class="top"><h1>Настройки</h1></header>
     <section class="card"><h2>Сигналы</h2>${pushBlock}
-      ${st === 'on' ? `<div class="pause">${paused ? `<p>Пауза до <b>${fmtTime(S.settings.paused_until)}</b></p><button class="btn" data-act="resume">Возобновить</button>`
-        : `<span class="muted">Не беспокоить:</span><button class="btn" data-act="pause" data-m="120">2 часа</button><button class="btn" data-act="pause-morning">до утра</button>`}</div>` : ''}
+      ${st === 'on' ? (isStopped()
+        ? `<div class="stopped"><p><b>Сигналы остановлены.</b> Ответы и настройки сохранены — включите, когда захотите.</p><button class="btn primary wide" data-act="resume">Включить сигналы снова</button></div>`
+        : `<div class="pause">${paused ? `<p>Пауза до <b>${fmtUntil(S.settings.paused_until)}</b></p><button class="btn" data-act="resume">Возобновить</button>`
+          : `<span class="muted">Не беспокоить:</span><button class="btn" data-act="pause" data-m="120">2 часа</button><button class="btn" data-act="pause-morning">до утра</button><button class="btn" data-act="pause" data-m="10080">неделя</button>`}</div>
+          <button class="btn ghost wide" data-act="stop">Остановить сигналы</button>
+          <p class="muted small-note">Сигналы перестанут приходить, пока вы их не включите. Приложение, ответы и настройки останутся.</p>`) : ''}
     </section>
     <section class="card"><h2>Расписание</h2>
       <div class="field-row">
@@ -752,10 +762,15 @@ document.addEventListener('click', async (e) => {
     case 'test-ping':
       try { const r = await api('/api/test-ping', { method: 'POST' }); toast(r.ok ? 'Пробный сигнал отправлен' : 'Push-сервис не принял сигнал'); } catch { toast('Нет связи с сервером'); }
       break;
+    case 'stop':
+      if (!confirm('Остановить сигналы? Ответы и настройки сохранятся — включить снова можно здесь же, в настройках.')) break;
+      // fall through
     case 'pause': case 'pause-morning': case 'resume':
       try {
-        const body = act === 'pause' ? { minutes: Number(el.dataset.m) } : act === 'pause-morning' ? { until_morning: true } : { minutes: 0 };
+        const body = act === 'stop' ? { stop: true } : act === 'pause' ? { minutes: Number(el.dataset.m) } : act === 'pause-morning' ? { until_morning: true } : { minutes: 0 };
         applyServerUser(await api('/api/pause', { method: 'POST', body }));
+        if (act === 'stop') toast('Сигналы остановлены');
+        if (act === 'resume') toast('Сигналы снова включены');
       } catch { toast('Нет связи с сервером'); }
       render(); break;
     case 'ppd':

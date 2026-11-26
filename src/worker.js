@@ -14,6 +14,7 @@ const SEND_GRACE_MS = 10 * 60_000;             // опоздавший боль�
 const CATEGORIES = ['work', 'study', 'food', 'road', 'home', 'care', 'sport', 'rest', 'screen', 'talk', 'other'];
 const PARTNERS = ['partner', 'child', 'parent', 'colleague', 'friend', 'other'];
 const L_KINDS = ['law', 'rules', 'norms']; // уточнение «нельзя»: закон, правила места или работы, нормы круга
+const STOPPED_UNTIL = Date.UTC(2100, 0, 1); // «сигналы остановлены» — пока человек сам не включит
 
 const PLATFORMS = ['android', 'ios', 'desktop', 'other'];
 function platformFromUA(ua = '') {
@@ -173,10 +174,16 @@ async function handleApi(request, env, url, ctx) {
     const b = await readJson(request);
     const minutes = Number(b.minutes) || 0;
     let until = 0;
-    if (b.until_morning) until = nextLocalMidnight(now, user.tz) + user.wake_start * 60_000 - 60_000;
+    if (b.stop) until = STOPPED_UNTIL;
+    else if (b.until_morning) until = nextLocalMidnight(now, user.tz) + user.wake_start * 60_000 - 60_000;
     else if (minutes > 0) until = now + Math.min(minutes, 7 * 1440) * 60_000;
     await env.DB.prepare('UPDATE users SET paused_until = ? WHERE id = ?').bind(until, user.id).run();
-    return json(publicUser({ ...user, paused_until: until }));
+    const updated = { ...user, paused_until: until };
+    if (!until && user.paused_until > now) { // возобновили: если на сегодня сигналов не осталось (были остановлены) — распланировать остаток дня
+      const left = await env.DB.prepare("SELECT COUNT(*) AS n FROM pings WHERE user_id = ? AND status = 'scheduled' AND scheduled_at > ?").bind(user.id, now).first();
+      if (!left.n) await replanToday(env, updated, now);
+    }
+    return json(publicUser(updated));
   }
 
   if (path === '/api/test-ping' && method === 'POST') {
@@ -274,7 +281,7 @@ async function handleAdmin(request, env, path, url, ctx) {
     const r = await DB.batch([
       DB.prepare(`SELECT COUNT(*) AS total, SUM(push_endpoint IS NOT NULL) AS with_push, SUM(consent) AS consented,
         SUM(last_seen > ?1) AS active_1d, SUM(last_seen > ?2) AS active_7d, SUM(created_at > ?1) AS new_1d, SUM(created_at > ?2) AS new_7d,
-        SUM(standalone = 1) AS installed, SUM(paused_until > ?3) AS paused FROM users`).bind(now - DAY, now - 7 * DAY, now),
+        SUM(standalone = 1) AS installed, SUM(paused_until > ?3) AS paused, SUM(paused_until >= ${STOPPED_UNTIL}) AS stopped FROM users`).bind(now - DAY, now - 7 * DAY, now),
       DB.prepare(`SELECT COALESCE(platform, 'unknown') AS platform, COUNT(*) AS n, SUM(standalone = 1) AS installed,
         SUM(last_seen > ?) AS active_7d FROM users GROUP BY 1 ORDER BY n DESC`).bind(now - 7 * DAY),
       DB.prepare(`SELECT COUNT(*) AS cohort, SUM(last_seen >= created_at + ?) AS retained FROM users WHERE created_at < ?`).bind(7 * DAY, now - 7 * DAY),
@@ -368,7 +375,7 @@ async function runCron(env, now = Date.now()) {
   for (const u of toPlan) {
     const date = localDate(now, u.tz);
     const stmts = [];
-    if (u.plan_date !== date) {
+    if (u.plan_date !== date && u.paused_until < nextLocalMidnight(now, u.tz)) { // на паузе весь день (или остановлены) — не планируем
       for (const t of planDay(u, date, now)) {
         stmts.push(DB.prepare('INSERT INTO pings (id, user_id, local_date, scheduled_at) VALUES (?, ?, ?, ?)').bind(randomId(12), u.id, date, t));
         stats.planned++;
